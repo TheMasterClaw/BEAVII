@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { BASE_SEPOLIA, CASH_TOKEN, DEPLOYMENT, EXCHANGE_ADDRESS, HAS_EXCHANGE, IS_DEPLOYED, STOCKS, STOCK_VAULT } from '@/config/base-sepolia';
 import { fetchAllStockPrices } from '@/lib/stock-prices';
+import { getBaseTokenizedStocks } from '@/lib/coinmarketcap';
 import { b20Iface, exchangeIface, getStockVault, multicall } from '@/lib/stock-vault';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,14 @@ export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get('address');
   if (address && !ethers.isAddress(address)) return NextResponse.json({ error: 'invalid address' }, { status: 400 });
 
-  const live = await fetchAllStockPrices().catch(() => null);
+  const [live, cmc] = await Promise.all([
+    fetchAllStockPrices().catch(() => null),
+    getBaseTokenizedStocks().catch((e) => {
+      console.warn('CoinMarketCap stats unavailable', (e as Error).message);
+      return null;
+    }),
+  ]);
+  const cmcByAddress = new Map((cmc ?? []).map((t) => [t.baseAddress, t]));
   const base = {
     network: { chainId: BASE_SEPOLIA.chainId, name: BASE_SEPOLIA.name, explorer: BASE_SEPOLIA.blockExplorer, faucetUrl: BASE_SEPOLIA.faucetUrl },
     deployed: IS_DEPLOYED,
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
     factory: DEPLOYMENT.factory?.address ?? null,
     cashToken: CASH_TOKEN,
     agentWallet: DEPLOYMENT.agentWallet,
-    priceSources: { nav: 'Coinbase Tokenized Stocks API', market: 'Underlying market price x token multiplier' },
+    priceSources: { nav: 'Coinbase Tokenized Stocks API', market: 'Underlying market price x token multiplier', stats: 'CoinMarketCap (Base mainnet token)' },
   };
 
   // Before the test tokens exist, still serve the full mainnet catalog with live prices.
@@ -120,6 +128,7 @@ export async function GET(req: NextRequest) {
       const p = i !== undefined ? exPrice[i] : null;
       const upd = i !== undefined ? Number(exUpdated[i] ?? 0) : 0;
       const h = s.address ? held.get(s.address.toLowerCase()) : undefined;
+      const m = s.mainnetAddress ? cmcByAddress.get(s.mainnetAddress.toLowerCase()) : undefined;
       return {
         symbol: s.symbol,
         testSymbol: s.testSymbol,
@@ -141,6 +150,19 @@ export async function GET(req: NextRequest) {
         vaultBalance: h ? ethers.formatUnits(h.balance, s.decimals) : '0',
         vaultValueUsd: h ? Number(ethers.formatEther(h.valueUsd)) : 0,
         userBalance: i !== undefined && userBals[i] ? ethers.formatUnits(userBals[i]!, s.decimals) : '0',
+        // Base mainnet token stats from CoinMarketCap; null when CMC doesn't track this token
+        market: m
+          ? {
+              cmcId: m.id,
+              price: m.price,
+              marketCap: m.marketCap,
+              volume24h: m.volume24h,
+              percentChange24h: m.percentChange24h,
+              percentChange7d: m.percentChange7d,
+              cmcRank: m.cmcRank,
+              updatedAt: m.lastUpdated,
+            }
+          : null,
       };
     });
 
