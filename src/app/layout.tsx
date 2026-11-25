@@ -1,0 +1,77 @@
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import "./animations.css";
+import "./modern-card.css";
+import { HydrationFix } from '@/components/HydrationFix';
+import { RootLayoutContent } from '@/components/RootLayoutContent';
+import { MoralisAuthProvider } from "@/components/MoralisAuthProvider";
+import { MoralisProvider } from "@/components/MoralisProvider";
+// import { PrivyWalletProvider } from "@/components/PrivyWalletProvider";
+import { SidebarProvider } from "@/components/SidebarProvider";
+
+// Metadata for the site
+export const metadata: Metadata = {
+  title: 'BAEVII - Tokenized Stock ITFs on Base',
+  description: 'Create and manage tokenized-stock ITFs on Base with AI-powered insights',
+  applicationName: 'BAEVII',
+  keywords: ['ITF', 'Base', 'Crypto', 'DeFi', 'Finance', 'AI', 'Blockchain', 'Portfolio Management'],
+  authors: [{ name: 'BAEVII Team' }],
+  creator: 'BAEVII',
+  publisher: 'BAEVII',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#121212' },
+  ],
+};
+
+// Define Inter font variables
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
+
+// Import Poppins font (clean, professional font good for finance)
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-poppins',
+})
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className={`${poppins.variable} ${inter.variable}`}>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body className={inter.className}>
+        <HydrationFix />
+        <MoralisAuthProvider>
+          <MoralisProvider>
+            {/* Temporarily disabled to avoid conflicts */}
+            {/* <PrivyWalletProvider> */}
+              <SidebarProvider>
+                <RootLayoutContent>{children}</RootLayoutContent>
+              </SidebarProvider>
+            {/* </PrivyWalletProvider> */}
+          </MoralisProvider>
+        </MoralisAuthProvider>
+      </body>
+    </html>
+  );
+}
