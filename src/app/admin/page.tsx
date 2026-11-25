@@ -38,10 +38,13 @@ function Section({ title, id, children }: { title: string; id: string; children:
   );
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   // Unconfigured admin is indistinguishable from a missing page.
   if (!adminEnabled()) notFound();
-  if (!(await isAdminSession())) return <LoginForm />;
+  if (!(await isAdminSession())) {
+    const { error } = await searchParams;
+    return <LoginForm initialError={error?.slice(0, 200)} />;
+  }
 
   const s = await collectAdminSnapshot();
   const a = s.analytics;

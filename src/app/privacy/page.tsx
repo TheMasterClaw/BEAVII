@@ -19,8 +19,10 @@ export default function PrivacyPage() {
           about 6 hours, and is not written to a database.
         </li>
         <li>
-          <strong>Social handle and post link</strong>, if you use verification. They are used only to process that
-          request.
+          <strong>X account</strong>, if you choose to link one at /verify: your X user id, handle and display name,
+          stored with your wallet address. Anyone can look up which handle is linked to a wallet. We do not keep X access
+          tokens (they are revoked right after one profile lookup), and you can delete the link on the same page at any
+          time.
         </li>
         <li>
           <strong>Preferences</strong>, such as theme, stored in your own browser&apos;s local storage.

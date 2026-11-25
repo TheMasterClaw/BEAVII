@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { STOCKS, type TestStock } from '@/config/base-sepolia';
 import { ETF_FACTORY_ABI, ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, FEE_LIMITS, estimateManagerYearlyUsd } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { useListedStocks } from '@/hooks/use-listed-stocks';
 
 type Stock = TestStock & { priceUsd?: number | null };
 interface Pick {
@@ -46,15 +47,18 @@ export function CreateETFForm() {
       .catch(() => {});
   }, []);
 
+  const listed = useListedStocks();
+  // Only stocks the exchange lists can go in an ITF (the factory reverts with UnsupportedToken otherwise).
+  const available = useMemo(() => (listed ? (STOCKS as Stock[]).filter((s) => listed.has(s.address.toLowerCase())) : (STOCKS as Stock[])), [listed]);
   const picked = useMemo(() => new Set(picks.map((p) => p.stock.address)), [picks]);
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = (STOCKS as Stock[]).filter((s) => !picked.has(s.address));
+    const list = available.filter((s) => !picked.has(s.address));
     if (!q) return list.slice(0, 12);
     return list
       .filter((s) => s.symbol.toLowerCase().includes(q) || s.testSymbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
       .slice(0, 12);
-  }, [query, picked]);
+  }, [query, picked, available]);
 
   const totalBps = picks.reduce((a, p) => a + pctToBps(p.weightPct), 0);
   const fees = { managementFeeBps: pctToBps(mgmtPct), entryFeeBps: pctToBps(entryPct), exitFeeBps: pctToBps(exitPct) };
@@ -177,7 +181,7 @@ export function CreateETFForm() {
             <div>
               <CardTitle className="text-base">2. Pick stocks and weights</CardTitle>
               <CardDescription>
-                Up to {FEE_LIMITS.maxAssets} stocks from {STOCKS.length} listed. Weights must total 100%.
+                Up to {FEE_LIMITS.maxAssets} stocks from {available.length} listed. Weights must total 100%.
               </CardDescription>
             </div>
             {picks.length > 1 && (
@@ -198,6 +202,9 @@ export function CreateETFForm() {
                 disabled={picks.length >= FEE_LIMITS.maxAssets}
               />
             </div>
+            {query.trim() && results.length === 0 && (
+              <p className="text-xs text-muted-foreground">No listed stock matches &ldquo;{query.trim()}&rdquo;.</p>
+            )}
             {results.length > 0 && picks.length < FEE_LIMITS.maxAssets && (
               <div className="flex flex-wrap gap-2">
                 {results.map((s) => (

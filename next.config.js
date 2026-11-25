@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
 
   // Security headers (audit F-08). The dApp asks users to sign transactions, so it must never be framed.
   // A full script CSP still needs testing against every Reown/WalletConnect origin before it can be enforced.
@@ -22,15 +23,21 @@ const nextConfig = {
 
   // Base-only app: cross-chain and Flow pages were removed
   async redirects() {
-    return ['/dashboard/flow-etf', '/dashboard/flow', '/dashboard/bridge', '/dashboard/swap', '/dashboard/auto-agent', '/dashboard/abi-test']
+    const legacy = ['/dashboard/flow-etf', '/dashboard/flow', '/dashboard/bridge', '/dashboard/swap', '/dashboard/auto-agent', '/dashboard/abi-test']
       .map((source) => ({ source, destination: '/dashboard/stocks', permanent: false }));
+    // Mock pages removed in the journey cleanup: Portfolio replaces analytics and transactions
+    const removed = [
+      { source: '/dashboard/analytics', destination: '/dashboard' },
+      { source: '/dashboard/transactions', destination: '/dashboard' },
+      { source: '/dashboard/agent-report', destination: '/dashboard/agent' },
+    ].map((r) => ({ ...r, permanent: false }));
+    return [...legacy, ...removed];
   },
   
   // Image optimization configuration
   images: {
-    unoptimized: false,
-    domains: [],
-    remotePatterns: [],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
   },
   
   // Completely disable ESLint and TypeScript checking

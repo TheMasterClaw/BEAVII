@@ -1,20 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ethers } from 'ethers';
-import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ExternalLink, RefreshCw, Wallet, Droplets, PieChart } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  BASE_SEPOLIA,
-  BASE_SEPOLIA_CHAIN_ID,
-  CASH_TOKEN,
-  STOCK_VAULT,
-  explorerUrl,
-} from '@/config/base-sepolia';
-import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
+import { BASE_SEPOLIA_CHAIN_ID, explorerUrl } from '@/config/base-sepolia';
 import { useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 interface StockRow {
@@ -67,12 +60,9 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export default function TokenizedStocksPage() {
   const [data, setData] = useState<StocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const { account, wrongChain, connect: openLogin, ensureBaseSepolia, getSigner } = useInjectedWallet();
+  const { account, wrongChain, connect: openLogin, ensureBaseSepolia } = useInjectedWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string; tx?: string } | null>(null);
-  const [depositAmt, setDepositAmt] = useState('100');
-  const [redeemAmt, setRedeemAmt] = useState('');
-  const [redeemInKind, setRedeemInKind] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'held' | 'nav' | 'basket'>('all');
   const [page, setPage] = useState(0);
@@ -129,30 +119,6 @@ export default function TokenizedStocksPage() {
       return body.txHashes?.[0];
     });
 
-  const deposit = () =>
-    run('Deposit', async () => {
-      const signer = await getSigner();
-      const amount = ethers.parseUnits(depositAmt, CASH_TOKEN.decimals);
-      const cash = new ethers.Contract(CASH_TOKEN.address, B20_ABI, signer);
-      const allowance: bigint = await cash.allowance(account, STOCK_VAULT.address);
-      if (allowance < amount) await (await cash.approve(STOCK_VAULT.address, amount)).wait();
-      const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
-      const tx = await vault.deposit(CASH_TOKEN.address, amount);
-      await tx.wait();
-      return tx.hash;
-    });
-
-  const redeem = () =>
-    run('Redeem', async () => {
-      const signer = await getSigner();
-      const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
-      const shares = ethers.parseEther(redeemAmt);
-      const tx = await vault.withdraw(shares, redeemInKind ? ethers.ZeroAddress : CASH_TOKEN.address, 0);
-      await tx.wait();
-      setRedeemAmt('');
-      return tx.hash;
-    });
-
   const basket = useMemo(() => (data?.stocks ?? []).filter((s) => s.inBasket), [data]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -168,7 +134,6 @@ export default function TokenizedStocksPage() {
   const pageRows = filtered.slice(page * PAGE, page * PAGE + PAGE);
   useEffect(() => setPage(0), [query, filter]);
   const stalest = Math.max(0, ...basket.map((s) => s.onchainPriceAgeSec ?? 0));
-  const canTransact = Boolean(account && data?.deployed && !busy);
   const canFaucet = Boolean(account && data?.cashToken?.address && !busy);
 
   return (
@@ -180,8 +145,8 @@ export default function TokenizedStocksPage() {
             <Badge variant="outline">Base Sepolia · {BASE_SEPOLIA_CHAIN_ID}</Badge>
           </div>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            A stock-basket ITF built on Base B-20 asset tokens. Test tokens mirror Coinbase tokenized stocks on Base and
-            are priced at their live NAV from the Tokenized Stocks API.
+            Every Coinbase tokenized stock on Base, mirrored as a Base Sepolia test token and priced at live NAV. Get
+            test funds here, then invest through an ITF.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -257,41 +222,30 @@ export default function TokenizedStocksPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base"><ArrowDownToLine className="h-4 w-4" /> Buy the basket</CardTitle>
-              <CardDescription>Deposit tUSDC. The vault issues each stock at NAV by target weight.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex gap-2">
-                <Input inputMode="decimal" value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} aria-label="tUSDC amount" />
-                <span className="self-center text-sm text-muted-foreground">tUSDC</span>
-              </div>
-              <Button className="w-full" disabled={!canTransact || !(Number(depositAmt) > 0)} onClick={deposit}>
-                {busy === 'Deposit' ? 'Confirm in wallet…' : 'Approve & deposit'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base"><ArrowUpFromLine className="h-4 w-4" /> Redeem</CardTitle>
-              <CardDescription>Burn shares for tUSDC at NAV, or take the stocks in kind.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex gap-2">
-                <Input inputMode="decimal" placeholder="Shares" value={redeemAmt} onChange={(e) => setRedeemAmt(e.target.value)} aria-label="Shares to redeem" />
-                <Button variant="outline" size="sm" className="self-center" disabled={!data.user?.shares} onClick={() => setRedeemAmt(data.user?.shares ?? '')}>Max</Button>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={redeemInKind} onChange={(e) => setRedeemInKind(e.target.checked)} />
-                Redeem in kind (receive the stock tokens)
-              </label>
-              <Button className="w-full" disabled={!canTransact || !(Number(redeemAmt) > 0)} onClick={redeem}>
-                {busy === 'Redeem' ? 'Confirm in wallet…' : 'Redeem'}
-              </Button>
-            </CardContent>
-          </Card>
+          {data.vault ? (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base"><PieChart className="h-4 w-4" /> Invest in a basket</CardTitle>
+                <CardDescription>
+                  You buy stocks here through an ITF. The flagship {data.vault.name} ({data.vault.symbol}) holds the basket below; the
+                  community has launched others.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button asChild>
+                  <Link href={`/dashboard/etfs/${data.vault.address}`}>
+                    Buy or redeem {data.vault.symbol} <ArrowRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/etfs">Explore all ITFs</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/create">Launch your own</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       )}
 

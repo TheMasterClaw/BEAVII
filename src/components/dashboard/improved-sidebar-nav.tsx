@@ -15,67 +15,22 @@ export interface ImprovedSidebarNavProps {
     href: string;
     icon: string;
     description?: string;
+    /** Items with a section are grouped under that heading after the main items. */
+    section?: string;
   }[];
   className?: string;
   isCollapsed?: boolean;
 }
 
-// Define default navigation items with proper mock icons
+// Main journey first (see, buy, launch), then the tools around it.
 const defaultItems = [
-  {
-    title: 'Overview',
-    href: '/dashboard',
-    icon: '📊'
-  },
-  {
-    title: 'Analytics',
-    href: '/dashboard/analytics',
-    icon: '📈'
-  },
-  {
-    title: 'Tokenized Stocks',
-    href: '/dashboard/stocks',
-    icon: '📈',
-    description: 'Stock-basket ITF on Base Sepolia'
-  },
-  {
-    title: 'Agent Monitoring',
-    href: '/dashboard/agent',
-    icon: '🤖'
-  },
-  {
-    title: 'Your Agents',
-    href: '/dashboard/agents',
-    icon: '🔌',
-    description: 'Connect Hermes, OpenClaw, Grok bots with their own accounts'
-  },
-  {
-    title: 'Launch ITF',
-    href: '/dashboard/create',
-    icon: '➕',
-    description: 'Build a stock basket and earn its fees'
-  },
-  {
-    title: 'ITFs',
-    href: '/dashboard/etfs',
-    icon: '💼',
-    description: 'Browse community ITFs and the ones you manage'
-  },
-  {
-    title: 'Verify Account',
-    href: '/verify',
-    icon: '✅'
-  },
-  {
-    title: 'Transactions',
-    href: '/dashboard/transactions',
-    icon: '📋'
-  },
-  {
-    title: 'Settings',
-    href: '/dashboard/settings',
-    icon: '⚙️'
-  },
+  { title: 'Portfolio', href: '/dashboard', icon: '📊', description: 'Your holdings and the ITFs you manage' },
+  { title: 'Explore ITFs', href: '/dashboard/etfs', icon: '💼', description: 'Browse community stock baskets' },
+  { title: 'Launch ITF', href: '/dashboard/create', icon: '➕', description: 'Build a stock basket and earn its fees' },
+  { title: 'Tokenized Stocks', href: '/dashboard/stocks', icon: '📈', description: 'Catalog, live prices and test funds' },
+  { title: 'Your Agents', href: '/dashboard/agents', icon: '🔌', description: 'Give AI agents scoped accounts and permissions' },
+  { title: 'Protocol Agent', href: '/dashboard/agent', icon: '🤖', description: 'Price-sync agent status', section: 'Developer' },
+  { title: 'Network & Contracts', href: '/dashboard/settings', icon: '⚙️', description: 'Addresses and network details', section: 'Developer' },
 ];
 
 
@@ -86,19 +41,23 @@ export function ImprovedSidebarNav({ items = defaultItems, className, isCollapse
     <div className={cn("px-3 py-2 w-full h-full", className)}>
       {!isCollapsed && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold">Dashboard</h2>
+          <h2 className="text-lg font-semibold">ITF Manager</h2>
         </div>
       )}
       
       <nav className="flex flex-col space-y-1">
-        {items.map((item) => {
+        {items.map((item, i) => {
+          const heading = item.section && item.section !== items[i - 1]?.section ? item.section : null;
           // Check if this item is active
-          const isActive = pathname === item.href || 
-                          (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          // Match whole path segments, so /dashboard/agents doesn't light up /dashboard/agent
+          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
           
           return (
+            <div key={item.href}>
+            {heading && !isCollapsed && (
+              <h3 className="mb-1 mt-5 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{heading}</h3>
+            )}
             <TransitionWrapper
-              key={item.href}
               className="w-full"
               transitionType={isActive ? 'slide-up' : undefined}
             >
@@ -112,7 +71,7 @@ export function ImprovedSidebarNav({ items = defaultItems, className, isCollapse
                   isCollapsed && "justify-center"
                 )}
                 aria-current={isActive ? 'page' : undefined}
-                title={isCollapsed ? item.title : undefined}
+                title={isCollapsed ? item.title : item.description}
               >
                 <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-lg" aria-hidden="true">
                   {item.icon}
@@ -120,6 +79,7 @@ export function ImprovedSidebarNav({ items = defaultItems, className, isCollapse
                 {!isCollapsed && <span>{item.title}</span>}
               </Link>
             </TransitionWrapper>
+            </div>
           );
         })}
       </nav>

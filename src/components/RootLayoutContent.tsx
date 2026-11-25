@@ -49,11 +49,11 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-              <Link href="/dashboard" className="hidden sm:block">
-                <Button variant="outline" size="sm">Dashboard</Button>
+              <Link href="/dashboard/etfs" className="hidden sm:block">
+                <Button variant="outline" size="sm">Explore ITFs</Button>
               </Link>
               <Link href="/dashboard/create" className="hidden sm:block">
-                <Button size="sm">Create ITF</Button>
+                <Button size="sm">Launch ITF</Button>
               </Link>
               
               {/* Network: Base only */}

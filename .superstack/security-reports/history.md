@@ -20,3 +20,4 @@
 - Vercel (ericnans-gmailcoms-projects/beavii): prod env has STOCK_AGENT_PRIVATE_KEY, STOCK_AGENT_SECRET, CRON_SECRET, CMC_API_KEY; DEPLOYER_PRIVATE_KEY absent. Deployment dpl_BL8AiTZv5BHvZvRfN5z1C7531A6j (Ready) matches the local security fixes file-for-file. Deployment Protection (SSO) is on.
 - Not yet verified: that prod STOCK_AGENT_PRIVATE_KEY is 0x3177…CD6d (sensitive vars can't be read back); confirm from the first cron sync tx sender.
 - New surface to audit: AGENT_WALLET_SEED (src/lib/agent-accounts derives every agent wallet from it), the Supabase/Postgres secrets, and /api/agents/v1.
+- Vercel prod env overwritten (user-approved) with the local STOCK_AGENT_PRIVATE_KEY (0x3177…CD6d), STOCK_AGENT_SECRET, CRON_SECRET; AGENT_WALLET_SEED and CMC_API_KEY untouched. Production redeployed (beavii-5v8cglmri). Prod signer = verified agent key by construction; first cron sync will confirm on-chain.

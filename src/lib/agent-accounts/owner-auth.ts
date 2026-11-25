@@ -31,7 +31,8 @@ export async function verifyOwner(p: {
   if (!(await agentStore().claimOnce(`sig:${id}`, Math.ceil(MAX_AGE_MS / 1000) + 120))) throw new OwnerAuthError('signature already used');
 }
 
-async function signedBy(owner: string, message: string, signature: string) {
+/** True if `signature` over `message` comes from `owner` (EOA, or ERC-1271 smart account on Base Sepolia). */
+export async function signedBy(owner: string, message: string, signature: string) {
   try {
     if (ethers.verifyMessage(message, signature).toLowerCase() === owner.toLowerCase()) return true;
   } catch {

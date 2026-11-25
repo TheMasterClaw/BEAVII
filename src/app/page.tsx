@@ -32,25 +32,28 @@ export default function HomePage() {
         </div>
         <div className="text-center max-w-4xl mx-auto">
           <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-fade-in">
-            AI-Powered ITF Management
+            Stock baskets, onchain
           </h1>
           <p className="mt-4 text-lg sm:text-xl md:text-2xl text-center text-muted-foreground max-w-3xl mx-auto animate-fade-in-delay mb-8">
-            Create, manage, and optimize your cryptocurrency ITFs with advanced AI insights.
+            Buy a basket of tokenized stocks in one transaction, or launch your own ITF on Base and earn its fees.
           </p>
-          
-          {!isAuthenticated ? (
-            <div className="mb-12">
-              <WalletConnectButton />
-            </div>
-          ) : (
-            <div className="mb-12">
-              <Link href="/dashboard">
-                <button className="bg-primary text-primary-foreground px-8 py-3 rounded-lg hover:bg-primary/90 transition-colors text-lg">
-                  Go to Dashboard
-                </button>
+
+          <div className="mb-12 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/dashboard/etfs"
+              className="rounded-lg bg-primary px-8 py-3 text-lg text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Explore ITFs
+            </Link>
+            {isAuthenticated ? (
+              <Link href="/dashboard" className="rounded-lg border px-8 py-3 text-lg transition-colors hover:bg-muted">
+                Your portfolio
               </Link>
-            </div>
-          )}
+            ) : (
+              <WalletConnectButton />
+            )}
+          </div>
+          <p className="-mt-8 mb-4 text-sm text-muted-foreground">Testnet demo on Base Sepolia. Test tokens have no value.</p>
 
           {/* Feature Grid */}
           <div className="grid gap-6 md:grid-cols-3 md:gap-8 mt-10 sm:mt-16">
@@ -58,9 +61,9 @@ export default function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Image src="/how-it-works-ai.png" alt="AI" width={32} height={32} />
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-foreground">AI-Powered Insights</h3>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">Agent-ready</h3>
               <p className="text-muted-foreground">
-                Advanced algorithms analyze market trends and optimize your portfolio automatically.
+                Give your own AI agents a scoped account: spending limits, sell caps and rebalancing rights you control.
               </p>
             </div>
             
@@ -78,9 +81,9 @@ export default function HomePage() {
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Image src="/how-it-works-deposit.png" alt="Deposit" width={32} height={32} />
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-foreground">Easy Management</h3>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">Buy and redeem at NAV</h3>
               <p className="text-muted-foreground">
-                Simple deposit, withdraw, and rebalancing with just a few clicks.
+                Pay test USDC to buy, redeem for cash or take the stocks themselves. In-kind redemption always works.
               </p>
             </div>
           </div>

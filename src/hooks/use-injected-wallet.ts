@@ -59,16 +59,16 @@ export function txErrorMessage(e: unknown) {
 }
 
 const CONTRACT_ERRORS: Record<string, string> = {
-  StalePrice: 'A stock price is missing or out of date. Sync prices, then try again.',
+  StalePrice: 'A stock price in this ITF is out of date. The protocol agent refreshes prices on a schedule; try again later, or redeem in kind now.',
   BadWeights: 'Weights must add up to exactly 100%.',
   FeeTooHigh: 'A fee is above the limit (5%/yr management, 1% entry, 1% exit).',
   FeesNotReady: 'The fee change is still in its 3-day waiting period.',
   UnsupportedToken: 'One of the stocks is not listed on the exchange.',
-  TooManyAssets: 'An ETF can hold at most 20 stocks.',
+  TooManyAssets: 'An ITF can hold at most 20 stocks.',
   BadName: 'Name must be 1–64 characters and symbol 1–12 characters.',
   Slippage: 'The price moved past your minimum. Try again.',
   NotAgent: 'Only the manager or an authorized agent can do this.',
-  OwnableUnauthorizedAccount: 'Only the ETF manager can do this.',
-  EnforcedPause: 'This ETF is paused. You can still redeem in kind.',
+  OwnableUnauthorizedAccount: 'Only the ITF manager can do this.',
+  EnforcedPause: 'This ITF is paused. You can still redeem in kind.',
   ZeroAmount: 'Amount is too small.',
 };

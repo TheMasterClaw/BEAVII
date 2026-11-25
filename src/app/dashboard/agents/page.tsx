@@ -306,7 +306,7 @@ function AgentCard({ a, busy, actions }: { a: AgentStatus; busy: string | null; 
           </div>
         </Section>
 
-        <Section title="Let it spend your cash" hint={`It can buy ETFs with up to this much of your ${CASH_TOKEN.symbol}; the shares come to you.`}>
+        <Section title="Let it spend your cash" hint={`It can buy ITFs with up to this much of your ${CASH_TOKEN.symbol}; the shares come to you.`}>
           <div className="flex flex-wrap gap-2">
             <Input className="w-28" type="number" min="0" step="any" value={spend} onChange={(e) => setSpend(e.target.value)} aria-label="Spending allowance" />
             <Button size="sm" variant="outline" onClick={() => actions.allowSpend(a, spend)} disabled={is(`spend-${id}`)}>
@@ -321,7 +321,7 @@ function AgentCard({ a, busy, actions }: { a: AgentStatus; busy: string | null; 
         </Section>
 
         {relevant.length > 0 && (
-          <Section title="ETF permissions" hint="Sell: it may redeem up to this many of your shares (cash comes to you). Rebalance: ETFs you manage.">
+          <Section title="ITF permissions" hint="Sell: it may redeem up to this many of your shares (cash comes to you). Rebalance: ITFs you manage.">
             <ul className="divide-y rounded-md border">
               {relevant.map((e) => (
                 <EtfPermissionRow key={e.address} a={a} e={e} busy={busy} actions={actions} />

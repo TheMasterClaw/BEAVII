@@ -1,382 +1,303 @@
 'use client';
 
-import { useState } from 'react';
-import { useWalletAuth } from '@/hooks/use-wallet-auth';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Droplets, ExternalLink, Plus, RefreshCw, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { WalletConnectButton } from '@/components/WalletConnectButton';
-import { ITFDetailDialog } from '@/components/etf/etf-detail-dialog';
-import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+import { BASE_SEPOLIA, explorerUrl } from '@/config/base-sepolia';
+import { bpsToPct, type Portfolio } from '@/lib/etf';
+import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
 
-// Sample ITF data for the demo. Fictional names, figures and descriptions: no real people, brands or track records.
-const mockITFs = {
-  blueChip: {
-    name: 'BAEVII Blue Chip',
-    description: 'Large-Cap Crypto Index',
-    icon: '/baevii-logo.png',
-    influencerImage: '/baevii-logo.png',
-    expenseRatio: '0.25%',
-    aum: '$12.4M',
-    performance30D: '+16.3%',
-    bio: 'A diversified portfolio of established large-cap cryptocurrencies designed for long-term growth and stability. This ITF focuses on proven projects with strong fundamentals and market leadership.',
-    holdings: [
-      { symbol: 'BTC', weight: '35.2%' },
-      { symbol: 'ETH', weight: '28.7%' },
-      { symbol: 'SOL', weight: '18.4%' },
-      { symbol: 'BNB', weight: '12.1%' }
-    ]
-  },
-  defiGrowth: {
-    name: 'DeFi Growth',
-    description: 'DeFi Protocol Index',
-    icon: '/baevii-logo.png',
-    influencerImage: '/coffee.png',
-    expenseRatio: '0.35%',
-    aum: '$8.7M',
-    performance30D: '+24.7%',
-    bio: 'Targeting the most innovative DeFi protocols that are reshaping traditional finance. This ITF captures the growth potential of decentralized lending, trading, and yield farming platforms.',
-    holdings: [
-      { symbol: 'FLOW', weight: '40%' },
-      { symbol: 'BTC', weight: '25%' },
-      { symbol: 'UNI', weight: '20%' },
-      { symbol: 'AAVE', weight: '15%' }
-    ]
-  },
-  aiWeb3: {
-    name: 'AI & Web3',
-    description: 'AI Innovation Index',
-    icon: '/baevii-logo.png',
-    influencerImage: '/cassette.png',
-    expenseRatio: '0.45%',
-    aum: '$6.2M',
-    performance30D: '+42.1%',
-    bio: 'The future of AI meets blockchain. This ITF invests in projects at the intersection of artificial intelligence and Web3, including decentralized AI networks, data marketplaces, and AI-powered DeFi protocols.',
-    holdings: [
-      { symbol: 'OCEAN', weight: '30.2%' },
-      { symbol: 'FET', weight: '25.7%' },
-      { symbol: 'AGIX', weight: '22.4%' },
-      { symbol: 'NMR', weight: '15.1%' }
-    ]
-  },
-  metaverse: {
-    name: 'Metaverse Index',
-    description: 'Virtual World & Gaming',
-    icon: '/baevii-logo.png',
-    influencerImage: '/donut.png',
-    expenseRatio: '0.40%',
-    aum: '$5.1M',
-    performance30D: '+28.5%',
-    bio: 'Dive into the digital frontier with this metaverse-focused ITF. From virtual real estate to gaming tokens, this portfolio captures the growth of immersive digital experiences and virtual economies.',
-    holdings: [
-      { symbol: 'MANA', weight: '28.5%' },
-      { symbol: 'SAND', weight: '25.3%' },
-      { symbol: 'AXS', weight: '20.1%' },
-      { symbol: 'ENJ', weight: '15.4%' }
-    ]
-  },
-  layer2: {
-    name: 'Layer 2 Growth',
-    description: 'Scaling Solutions Index',
-    icon: '/baevii-logo.png',
-    influencerImage: '/flower.png',
-    expenseRatio: '0.38%',
-    aum: '$7.3M',
-    performance30D: '+31.2%',
-    bio: 'Scaling the future of blockchain. This ITF focuses on Layer 2 solutions that are solving Ethereum\'s scalability challenges, including rollups, sidechains, and other scaling technologies.',
-    holdings: [
-      { symbol: 'MATIC', weight: '32.1%' },
-      { symbol: 'ARB', weight: '28.4%' },
-      { symbol: 'OP', weight: '22.3%' },
-      { symbol: 'IMX', weight: '12.5%' }
-    ]
-  },
-  privacy: {
-    name: 'Privacy Focus',
-    description: 'Privacy Tech Index',
-    icon: '/baevii-logo.png',
-    influencerImage: '/giraffehorn.png',
-    expenseRatio: '0.42%',
-    aum: '$4.2M',
-    performance30D: '+19.8%',
-    bio: 'Privacy is a fundamental human right. This ITF invests in privacy-focused cryptocurrencies and protocols that protect user data and enable anonymous transactions in the digital age.',
-    holdings: [
-      { symbol: 'XMR', weight: '35.5%' },
-      { symbol: 'ZEC', weight: '25.2%' },
-      { symbol: 'SCRT', weight: '20.1%' },
-      { symbol: 'ROSE', weight: '14.5%' }
-    ]
-  },
-  momentum: {
-    name: 'Momentum Select',
-    description: 'Technical Analysis Focus',
-    icon: '/baevii-logo.png',
-    influencerImage: '/ice.png',
-    expenseRatio: '0.40%',
-    aum: '$4.8M',
-    performance30D: '+19.5%',
-    bio: 'A sample strategy that combines technical signals with fundamental screens to pick projects with strong momentum.',
-    holdings: [
-      { symbol: 'BTC', weight: '40.2%' },
-      { symbol: 'ETH', weight: '35.7%' },
-      { symbol: 'ADA', weight: '12.4%' },
-      { symbol: 'DOT', weight: '8.1%' }
-    ]
-  },
-  research: {
-    name: 'Research Select',
-    description: 'Research-Driven Portfolio',
-    icon: '/baevii-logo.png',
-    influencerImage: '/jellowchurch.png',
-    expenseRatio: '0.35%',
-    aum: '$9.2M',
-    performance30D: '+22.7%',
-    bio: 'A sample strategy focused on projects with clear use cases and sustainable tokenomics.',
-    holdings: [
-      { symbol: 'ETH', weight: '35.0%' },
-      { symbol: 'DOT', weight: '25.5%' },
-      { symbol: 'LINK', weight: '20.2%' },
-      { symbol: 'ATOM', weight: '15.8%' }
-    ]
-  },
-  digitalAssets: {
-    name: 'Digital Assets',
-    description: 'Institutional Grade',
-    icon: '/baevii-logo.png',
-    influencerImage: '/jellyfish.png',
-    expenseRatio: '0.32%',
-    aum: '$15.4M',
-    performance30D: '+17.9%',
-    bio: 'Institutional-grade digital asset allocation designed for long-term wealth preservation and growth. This ITF focuses on established cryptocurrencies with proven track records and strong institutional adoption.',
-    holdings: [
-      { symbol: 'BTC', weight: '45.0%' },
-      { symbol: 'ETH', weight: '35.0%' },
-      { symbol: 'SOL', weight: '12.5%' },
-      { symbol: 'AVAX', weight: '7.5%' }
-    ]
-  }
-};
+const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 });
+const qty = (n: number, max = 4) => n.toLocaleString('en-US', { maximumFractionDigits: max });
 
-export default function DashboardPage() {
-  const { isAuthenticated, user } = useWalletAuth();
-  const [selectedITF, setSelectedITF] = useState<keyof typeof mockITFs | null>(null);
+type Status = { kind: 'ok' | 'err'; msg: string; tx?: string } | null;
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-6">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">Welcome to BAEVII ITF Manager</h1>
-          <p className="text-muted-foreground max-w-md">
-            Connect your wallet to start managing your ITFs with AI-powered insights.
-          </p>
+export default function PortfolioPage() {
+  const { account, connect } = useInjectedWallet();
+  const [data, setData] = useState<Portfolio | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  const load = useCallback(async () => {
+    if (!account) return setData(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/portfolio?account=${account}`, { cache: 'no-store' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setData(body);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [account]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const faucet = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/stocks/faucet', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ address: account }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setStatus({ kind: 'ok', msg: '1,000 tUSDC is on its way to your wallet.', tx: body.txHashes?.[0] });
+      await load();
+    } catch (e) {
+      setStatus({ kind: 'err', msg: `Faucet failed: ${txErrorMessage(e)}` });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const header = (
+    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Portfolio</h1>
+        <p className="mt-1 text-muted-foreground">Your ITF holdings and the ITFs you manage on {BASE_SEPOLIA.name}.</p>
+      </div>
+      {account && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={explorerUrl(account)} target="_blank" rel="noreferrer">
+              Activity on Basescan <ExternalLink className="ml-1 h-3 w-3" />
+            </a>
+          </Button>
         </div>
-        <WalletConnectButton />
+      )}
+    </div>
+  );
+
+  if (!account) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <Card className="py-6">
+          <CardHeader>
+            <CardTitle>Log in to see your portfolio</CardTitle>
+            <CardDescription>
+              Use any wallet, or sign in with email or a social account. You can browse ITFs without logging in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button onClick={() => connect().catch((e) => setError(txErrorMessage(e)))}>
+              <Wallet className="mr-1 h-4 w-4" /> Log in
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/etfs">Explore ITFs</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <HowItWorks />
       </div>
     );
   }
 
+  const invested = (data?.positions ?? []).reduce((a, p) => a + p.valueUsd, 0);
+  const earned = (data?.managed ?? []).reduce((a, e) => a + e.managerFeesUsd, 0);
+  const isNew = data && data.positions.length === 0 && data.managed.length === 0;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Your ITF portfolio overview.
-          </p>
+      {header}
+
+      {status && (
+        <div role="status" className={`rounded-md border px-4 py-3 text-sm ${status.kind === 'ok' ? 'border-green-500/40 bg-green-500/10' : 'border-red-500/40 bg-red-500/10'}`}>
+          {status.msg}
+          {status.tx && (
+            <a className="ml-2 underline" href={explorerUrl(status.tx, 'tx')} target="_blank" rel="noreferrer">
+              View transaction
+            </a>
+          )}
         </div>
+      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Invested in ITFs" value={data ? usd(invested) : '…'} sub={data ? `${data.positions.length} ITF${data.positions.length === 1 ? '' : 's'}` : undefined} />
+        <Stat label="Cash" value={data ? `${qty(data.cash, 2)} tUSDC` : '…'} />
+        <Stat label="ITFs you manage" value={data ? String(data.managed.length) : '…'} />
+        <Stat label="Manager fees earned" value={data ? usd(earned) : '…'} sub="at value when paid" />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {isNew && (
         <Card>
           <CardHeader>
-            <CardTitle>Wallet Status</CardTitle>
-            <CardDescription>Your connected wallet information</CardDescription>
+            <CardTitle>Get started</CardTitle>
+            <CardDescription>Three steps, all on testnet, no real money.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Chain:</span>
-                <span className="text-sm">{user?.chainId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Login:</span>
-                <span className="text-sm">Reown</span>
-              </div>
-            </div>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <Step n={1} title="Get test funds" done={data.cash > 0}>
+              <p>
+                Gas needs Base Sepolia ETH from the{' '}
+                <a className="underline" href={BASE_SEPOLIA.faucetUrl} target="_blank" rel="noreferrer">CDP faucet</a>. Test cash is free.
+              </p>
+              <Button size="sm" className="mt-2" disabled={busy} onClick={faucet}>
+                <Droplets className="mr-1 h-4 w-4" /> {busy ? 'Minting…' : 'Get 1,000 tUSDC'}
+              </Button>
+            </Step>
+            <Step n={2} title="Buy an ITF">
+              <p>Pick a stock basket. Your tUSDC buys every stock in it at NAV.</p>
+              <Button size="sm" variant="outline" className="mt-2" asChild>
+                <Link href="/dashboard/etfs">Explore ITFs</Link>
+              </Button>
+            </Step>
+            <Step n={3} title="Or launch your own">
+              <p>Choose up to 20 stocks, set fees, and earn a share of the fund for managing it.</p>
+              <Button size="sm" variant="outline" className="mt-2" asChild>
+                <Link href="/dashboard/create">Launch an ITF</Link>
+              </Button>
+            </Step>
           </CardContent>
         </Card>
+      )}
 
+      {data && data.positions.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Wallet Balance</CardTitle>
-            <CardDescription>Current native token balance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="text-2xl font-bold">-- ETH</div>
-              <div className="text-xs text-muted-foreground">
-                Balance will be displayed here
-              </div>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">Your holdings</CardTitle>
+              <CardDescription>Valued at each ITF&apos;s current NAV.</CardDescription>
             </div>
+            <Button variant="outline" size="sm" disabled={busy} onClick={faucet}>
+              <Droplets className="mr-1 h-4 w-4" /> {busy ? 'Minting…' : 'Get tUSDC'}
+            </Button>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-muted-foreground">
+                <tr className="border-b">
+                  <th className="py-2 pr-4 font-medium">ITF</th>
+                  <th className="py-2 pr-4 text-right font-medium">Shares</th>
+                  <th className="py-2 pr-4 text-right font-medium">NAV / share</th>
+                  <th className="py-2 pr-4 text-right font-medium">Value</th>
+                  <th className="py-2 text-right font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                {data.positions.map((p) => (
+                  <tr key={p.etf.address} className="border-b last:border-0">
+                    <td className="py-2 pr-4">
+                      <div className="font-medium">{p.etf.name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{p.etf.symbol}</div>
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{qty(p.shares)}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{usd(p.etf.navPerShare)}</td>
+                    <td className="py-2 pr-4 text-right font-medium tabular-nums">{usd(p.valueUsd)}</td>
+                    <td className="py-2 text-right">
+                      <Link className="inline-flex items-center gap-1 underline" href={`/dashboard/etfs/${p.etf.address}`}>
+                        Buy / redeem <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </CardContent>
         </Card>
+      )}
 
+      {data && data.managed.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>ITF Portfolio</CardTitle>
-            <CardDescription>Your managed ITFs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">No ITFs created yet</p>
-              <Button>Create Your First ITF</Button>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">ITFs you manage</CardTitle>
+              <CardDescription>Open one to rebalance, change fees, or collect what has accrued.</CardDescription>
             </div>
+            <Button size="sm" asChild>
+              <Link href="/dashboard/create">
+                <Plus className="mr-1 h-4 w-4" /> Launch another
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {data.managed.map((e) => (
+              <Link key={e.address} href={`/dashboard/etfs/${e.address}`} className="group rounded-md border p-4 transition-colors hover:border-primary/50">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{e.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{e.symbol}</div>
+                  </div>
+                  <Badge variant="outline">{bpsToPct(e.fees.managementFeeBps)}/yr</Badge>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                  <Kv k="AUM" v={usd(e.totalValueUsd)} />
+                  <Kv k="Stocks" v={String(e.assetCount)} />
+                  <Kv k="You earned" v={usd(e.managerFeesUsd)} />
+                </dl>
+              </Link>
+            ))}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Our ITFs Section */}
-      <div>
-        <h2 className="text-2xl font-semibold">Sample ITFs</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Illustrative examples only. Names, AUM, fees and performance are made up, not real funds or results.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(mockITFs).slice(0, 3).map(([key, itf]) => (
-            <Card
-              key={key}
-              className="hover:shadow-lg transition-all duration-200 border border-gray-200 bg-card h-auto flex flex-col cursor-pointer pt-4 px-1 pb-4"
-              onClick={() => setSelectedITF(key as keyof typeof mockITFs)}
-            >
-              <CardHeader className="pt-0 pb-0 border-b-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden">
-                      <Image 
-                        src={itf.influencerImage} 
-                        alt={itf.name}
-                        width={28} 
-                        height={28} 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xs font-semibold text-foreground leading-tight mb-0">{itf.name}</CardTitle>
-                      <CardDescription className="text-[10px] text-muted-foreground leading-tight mt-0">{itf.description}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-muted-foreground font-medium">ER</div>
-                    <div className="text-xs font-semibold text-foreground">{itf.expenseRatio}</div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 flex-1 flex flex-col">
-                <div className="space-y-0 flex-1">
-                  <div className="flex justify-between items-center mt-0 mb-0">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground font-medium">AUM</div>
-                      <div className="text-xs font-bold text-foreground">{itf.aum}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-muted-foreground font-medium">30D</div>
-                      <div className="text-xs font-bold text-green-600">{itf.performance30D}</div>
-                    </div>
-                  </div>
-                  <div className="mt-0 mb-0">
-                    <div className="flex justify-between items-center mb-0 mt-0">
-                      <span className="text-[10px] font-medium text-foreground">Top Holdings</span>
-                      <span className="text-[10px] text-muted-foreground">Weight</span>
-                    </div>
-                    <div className="space-y-0">
-                      {itf.holdings.map((h) => (
-                        <div key={h.symbol} className="flex justify-between items-center">
-                          <span className="text-[10px] font-medium text-foreground">{h.symbol}</span>
-                          <span className="text-[10px] text-muted-foreground">{h.weight}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Influencer ITFs Section */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Influencer ITFs</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(mockITFs).slice(3).map(([key, itf]) => (
-            <Card
-              key={key}
-              className="hover:shadow-lg transition-all duration-200 border border-gray-200 bg-card h-auto flex flex-col cursor-pointer pt-4 px-1 pb-4"
-              onClick={() => setSelectedITF(key as keyof typeof mockITFs)}
-            >
-              <CardHeader className="pt-0 pb-0 border-b-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden">
-                      <Image 
-                        src={itf.influencerImage} 
-                        alt={itf.name}
-                        width={28} 
-                        height={28} 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xs font-semibold text-foreground leading-tight mb-0">{itf.name}</CardTitle>
-                      <CardDescription className="text-[10px] text-muted-foreground leading-tight mt-0">{itf.description}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-muted-foreground font-medium">ER</div>
-                    <div className="text-xs font-semibold text-foreground">{itf.expenseRatio}</div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 flex-1 flex flex-col">
-                <div className="space-y-0 flex-1">
-                  <div className="flex justify-between items-center mt-0 mb-0">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground font-medium">AUM</div>
-                      <div className="text-xs font-bold text-foreground">{itf.aum}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-muted-foreground font-medium">30D</div>
-                      <div className="text-xs font-bold text-green-600">{itf.performance30D}</div>
-                    </div>
-                  </div>
-                  <div className="mt-0 mb-0">
-                    <div className="flex justify-between items-center mb-0 mt-0">
-                      <span className="text-[10px] font-medium text-foreground">Top Holdings</span>
-                      <span className="text-[10px] text-muted-foreground">Weight</span>
-                    </div>
-                    <div className="space-y-0">
-                      {itf.holdings.map((h) => (
-                        <div key={h.symbol} className="flex justify-between items-center">
-                          <span className="text-[10px] font-medium text-foreground">{h.symbol}</span>
-                          <span className="text-[10px] text-muted-foreground">{h.weight}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* ITF Detail Dialog */}
-      {selectedITF && (
-        <ITFDetailDialog
-          isOpen={true}
-          onClose={() => setSelectedITF(null)}
-          itf={mockITFs[selectedITF]}
-        />
       )}
     </div>
   );
-} 
+}
+
+function HowItWorks() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {[
+        ['Stock baskets on Base', 'Each ITF is an ERC-20 share in a basket of tokenized stocks, priced at live NAV.'],
+        ['Buy and redeem at NAV', 'Pay tUSDC to buy; redeem for tUSDC or take the stocks themselves, even if the ITF is paused.'],
+        ['Anyone can manage', 'Launch an ITF, set its weights and fees, and earn new shares as the fund grows.'],
+      ].map(([t, b]) => (
+        <Card key={t}>
+          <CardHeader>
+            <CardTitle className="text-base">{t}</CardTitle>
+            <CardDescription>{b}</CardDescription>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function Step({ n, title, done, children }: { n: number; title: string; done?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border p-4 text-sm text-muted-foreground">
+      <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">{done ? '✓' : n}</span>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Kv({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{k}</dt>
+      <dd className="font-medium tabular-nums">{v}</dd>
+    </div>
+  );
+}
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}

@@ -74,6 +74,8 @@ export interface EtfDetail extends EtfSummary {
   account: null | {
     address: string;
     shares: number;
+    /** Exact share balance in wei, for "Max" redeems (the float in `shares` can round above the balance). */
+    sharesWei: string;
     valueUsd: number;
     cash: number;
     isManager: boolean;
@@ -199,6 +201,7 @@ export async function readEtfDetail(address: string, account?: string | null): P
     acct = {
       address: account,
       shares: sharesN,
+      sharesWei: shares.toString(),
       valueUsd: sharesN * summary.navPerShare,
       cash: Number(ethers.formatUnits(cash, DEPLOYMENT.cashToken?.decimals ?? 6)),
       isManager: summary.manager.toLowerCase() === lower,
@@ -237,6 +240,68 @@ export async function listEtfs(manager?: string | null): Promise<EtfSummary[]> {
     });
   }
   return out;
+}
+
+export interface PortfolioPosition {
+  etf: EtfSummary;
+  shares: number;
+  sharesWei: string;
+  valueUsd: number;
+}
+
+export interface Portfolio {
+  account: string;
+  cash: number;
+  positions: PortfolioPosition[];
+  managed: EtfSummary[];
+}
+
+const balanceIface = new ethers.Interface(['function balanceOf(address) view returns (uint256)']);
+
+/** Every ITF the account holds shares in or manages, plus its tUSDC. One balanceOf multicall over all ITFs. */
+export async function readPortfolio(account: string): Promise<Portfolio> {
+  const provider = getBaseSepoliaProvider();
+  const factories = FACTORY_DEPLOYED ? [ETF_FACTORY_ADDRESS, ...LEGACY_FACTORY_ADDRESSES] : [];
+  const lists = await Promise.all(
+    factories.map(async (addr) => {
+      const f = new ethers.Contract(addr, ETF_FACTORY_ABI, provider);
+      const [all, mine]: [string[], string[]] = await Promise.all([f.allETFs(), f.etfsOf(account)]);
+      return { all: [...all].reverse(), mine: [...mine].reverse() };
+    }),
+  );
+  const all = lists.flatMap((l) => l.all);
+  const managedSet = new Set(lists.flatMap((l) => l.mine).map((a) => a.toLowerCase()));
+
+  const cashAddr = DEPLOYMENT.cashToken?.address;
+  const targets = [...all, ...(cashAddr ? [cashAddr] : [])];
+  const mc = new ethers.Contract(MULTICALL3, MULTICALL3_ABI, provider);
+  const res: { success: boolean; returnData: string }[] = targets.length
+    ? await mc.aggregate3(targets.map((target) => ({ target, allowFailure: true, callData: balanceIface.encodeFunctionData('balanceOf', [account]) })))
+    : [];
+  const bal = res.map((r) => (r.success && r.returnData !== '0x' ? (balanceIface.decodeFunctionResult('balanceOf', r.returnData)[0] as bigint) : BigInt(0)));
+  const cash = cashAddr ? Number(ethers.formatUnits(bal[bal.length - 1], DEPLOYMENT.cashToken?.decimals ?? 6)) : 0;
+
+  const wanted = all.filter((a, i) => bal[i] > BigInt(0) || managedSet.has(a.toLowerCase()));
+  const summaries = new Map<string, EtfSummary>();
+  for (let i = 0; i < wanted.length; i += 10) {
+    const chunk = await Promise.allSettled(wanted.slice(i, i + 10).map((a) => readEtfSummary(a)));
+    chunk.forEach((r, j) => {
+      if (r.status === 'fulfilled') summaries.set(wanted[i + j].toLowerCase(), r.value);
+      else console.error(`readPortfolio: failed to read ${wanted[i + j]}`, r.reason);
+    });
+  }
+
+  const positions: PortfolioPosition[] = [];
+  all.forEach((a, i) => {
+    const etf = summaries.get(a.toLowerCase());
+    if (!etf || bal[i] === BigInt(0)) return;
+    const shares = n18(bal[i]);
+    positions.push({ etf, shares, sharesWei: bal[i].toString(), valueUsd: shares * etf.navPerShare });
+  });
+  positions.sort((x, y) => y.valueUsd - x.valueUsd);
+  const managed = all.filter((a) => managedSet.has(a.toLowerCase())).map((a) => summaries.get(a.toLowerCase())).filter(Boolean) as EtfSummary[];
+
+  return { account, cash, positions, managed };
 }
 
 export async function isFactoryEtf(address: string): Promise<boolean> {

@@ -22,8 +22,10 @@ The app now runs on **Base Sepolia (chain 84532)** with a tokenized-stock ETF, b
 - **Shared exchange:** [`contracts/StockExchange.sol`](contracts/StockExchange.sol) is the one NAV price feed and the only
   holder of MINT/BURN on the test tokens, so a new ETF needs no role grants. Issuance-style minting stands in for buying
   through a venue on testnet.
-- **UI:** `/dashboard/create` (launch an ETF), `/dashboard/etfs` (browse, or see the ones you manage),
-  `/dashboard/etfs/<address>` (invest, redeem, and the manager console), `/dashboard/stocks` (flagship + catalog).
+- **UI:** `/dashboard` (portfolio: holdings, ITFs you manage, first-run steps), `/dashboard/etfs` (explore ITFs),
+  `/dashboard/etfs/<address>` (buy, redeem, and the manager console), `/dashboard/create` (launch an ITF),
+  `/dashboard/stocks` (catalog, live prices, test funds), `/dashboard/agents` (your AI agents),
+  `/dashboard/agent` (protocol agent status) and `/dashboard/settings` (network and contracts).
 
 ### Manager fees
 
@@ -69,6 +71,8 @@ app refuses to start signing without it, or if it equals the deployer key. Do no
 | `GET /api/flow/portfolio` | Vault portfolio in the legacy ITF shape |
 | `GET /api/etfs?manager=` | Every user-created ETF (or one manager's): AUM, NAV, fees, manager earnings |
 | `GET /api/etfs/:address?account=` | One ETF: holdings, target vs actual weights, pending fee changes, account position |
+| `GET /api/portfolio?account=` | An account's ITF positions, the ITFs it manages, and its tUSDC |
+| `GET /api/flow/agent` | Protocol agent status: gas, authorizations, flagship price age (all onchain) |
 
 > Testnet only. Test tokens have no value. Mainnet Coinbase tokenized stocks are only available to eligible persons
 > outside the US, and the program rules exclude products that enable trading for US users.
@@ -79,6 +83,24 @@ kept in the data but not shown or searchable in the UI. The non-Coinbase prices 
 endpoint, whose terms forbid commercial use. That is fine for a demo, but switch to a licensed market-data provider
 before running this as a product. A mainnet version (real assets, manager fees, a protocol treasury) would need
 securities counsel, KYC/AML and geoblocking first.
+
+### Verify with X
+
+`/verify` links a wallet to an X account. The wallet signs a message (no gas), then the user signs in with X
+(OAuth 2.0 + PKCE, read-only scopes). The server reads `GET /2/users/me` once, revokes the token, and stores only the
+X id, handle and display name with the wallet. It uses the same database as agent accounts (Supabase:
+`supabase/migrations/*_x_links.sql`). One X account maps to one wallet: a new link replaces the old one on both sides.
+
+Setup: create an X developer app with OAuth 2.0 enabled, then set `X_CLIENT_ID`, `X_CLIENT_SECRET` and
+`X_VERIFY_SECRET` (see `.env.example`). Register the callback URL `https://<your-domain>/api/verify-x/callback`.
+Each verification makes one `users/me` call, so check your X API plan's limits.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/verify-x/start` `{address, issuedAt, signature}` | Checks the wallet signature and returns the X sign-in URL |
+| `GET /api/verify-x/callback` | X redirects here; saves the link and returns to `/verify` |
+| `GET /api/verify-x/status/:address` | Public: the X handle linked to a wallet |
+| `POST /api/verify-x/unlink` `{address, issuedAt, signature}` | Deletes the wallet's link |
 
 ### Connect your own agent (Hermes, OpenClaw, Grok bots, ...)
 

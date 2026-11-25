@@ -1,77 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { DEPLOYMENT } from '@/config/base-sepolia';
-import { getServerProvider } from '@/lib/flow-contracts-server';
+import { DEPLOYMENT, EXCHANGE_ADDRESS } from '@/config/base-sepolia';
+import { getBaseSepoliaProvider } from '@/lib/stock-vault';
+import { readEtfDetail } from '@/lib/etf';
 
 export const dynamic = 'force-dynamic';
 
-/** Agent wallet status for the Base Sepolia stock vault. Operation history is demo data. */
+const AGENT_ABI = ['function authorizedAgents(address) view returns (bool)', 'function maxPriceAge() view returns (uint256)'];
+
+/**
+ * Onchain status of the protocol agent (the key that syncs NAV prices and rebalances the flagship).
+ * Everything here is read from Base Sepolia; there is no simulated data.
+ */
 export async function GET() {
-  const agentWallet = DEPLOYMENT.agentWallet;
-  let balance = '0';
+  const agent = DEPLOYMENT.agentWallet;
+  if (!agent) return NextResponse.json({ configured: false });
+  const provider = getBaseSepoliaProvider();
+  const flagship = DEPLOYMENT.vault?.address;
   try {
-    if (agentWallet) balance = Number(ethers.formatEther(await getServerProvider().getBalance(agentWallet))).toFixed(4);
-  } catch (error) {
-    console.error('Error fetching agent balance on Base Sepolia:', error);
-  }
-
-  const mockOperations = [
-    {
-      id: '0x' + Math.random().toString(16).slice(2),
-      type: 'Rebalance',
-      timestamp: new Date().toISOString(),
-      targetToken: 'tNVDAc',
-      amount: '25',
-      status: 'completed',
-      txHash: '0x' + Math.random().toString(16).slice(2),
-    },
-    {
-      id: '0x' + Math.random().toString(16).slice(2),
-      type: 'NAV Price Sync',
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-      targetToken: 'tAAPLc',
-      amount: '0',
-      status: 'completed',
-      txHash: '0x' + Math.random().toString(16).slice(2),
-    },
-  ];
-
-  return NextResponse.json({
-    success: Boolean(agentWallet),
-    data: {
-      address: agentWallet,
-      isAuthorized: Boolean(agentWallet),
-      balance: `${balance} ETH`,
-      totalOperations: mockOperations.length,
-      lastOperation: new Date().toISOString(),
-      status: agentWallet ? 'active' : 'inactive',
-      operations: mockOperations,
-    },
-  });
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const { action, agent, authorized } = await request.json();
-    if (!action) {
-      return NextResponse.json({ success: false, error: 'Missing required parameter: action' }, { status: 400 });
-    }
-    // Simulated: the vault agent is set at deploy time (scripts/deploy-base-sepolia.mjs).
-    if (action === 'setAgent' && agent) {
-      return NextResponse.json({
-        success: true,
-        data: { txHash: `0x${Math.random().toString(16).slice(2)}`, action, agent, timestamp: new Date().toISOString() },
-      });
-    }
-    if (action === 'authorize' && agent) {
-      return NextResponse.json({
-        success: true,
-        data: { txHash: `0x${Math.random().toString(16).slice(2)}`, action, agent, authorized, timestamp: new Date().toISOString() },
-      });
-    }
-    return NextResponse.json({ success: false, error: `Unsupported action: ${action}` }, { status: 400 });
-  } catch (error) {
-    console.error('Error processing agent action:', error);
-    return NextResponse.json({ success: false, error: 'Failed to process agent action' }, { status: 500 });
+    const exchange = EXCHANGE_ADDRESS ? new ethers.Contract(EXCHANGE_ADDRESS, AGENT_ABI, provider) : null;
+    const [balance, nonce, onExchange, maxPriceAge, onFlagship, detail] = await Promise.all([
+      provider.getBalance(agent),
+      provider.getTransactionCount(agent),
+      exchange ? exchange.authorizedAgents(agent) : Promise.resolve(null),
+      exchange ? exchange.maxPriceAge() : Promise.resolve(null),
+      flagship ? new ethers.Contract(flagship, AGENT_ABI, provider).authorizedAgents(agent) : Promise.resolve(null),
+      flagship ? readEtfDetail(flagship).catch(() => null) : Promise.resolve(null),
+    ]);
+    const ages = (detail?.holdings ?? []).map((h) => h.priceAgeSec).filter((a): a is number => a != null);
+    return NextResponse.json({
+      configured: true,
+      address: agent,
+      balanceEth: Number(ethers.formatEther(balance)),
+      transactions: nonce,
+      authorizedOnExchange: onExchange,
+      authorizedOnFlagship: onFlagship,
+      maxPriceAgeSec: maxPriceAge == null ? null : Number(maxPriceAge),
+      flagship: detail
+        ? { address: detail.address, symbol: detail.symbol, lastRebalance: detail.lastRebalance, stalestPriceSec: ages.length ? Math.max(...ages) : null }
+        : null,
+    });
+  } catch (e) {
+    console.error('GET /api/flow/agent failed', e);
+    return NextResponse.json({ configured: true, address: agent, error: 'Could not read the agent from Base Sepolia' }, { status: 502 });
   }
 }

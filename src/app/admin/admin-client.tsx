@@ -5,24 +5,39 @@ import { useRouter } from 'next/navigation';
 import { Lock, LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { loginAction, logoutAction } from './actions';
+import { loginAction, logoutAction, type LoginState } from './actions';
 
-export function LoginForm() {
-  const [state, action, pending] = useActionState(loginAction, undefined);
+export function LoginForm({ initialError }: { initialError?: string }) {
+  const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, { stage: 'email', error: initialError });
+  const codeStage = state?.stage === 'code';
   return (
     <form action={action} className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-card p-6 shadow-sm">
       <div className="flex items-center gap-2 font-semibold">
         <Lock className="h-4 w-4" /> Restricted
       </div>
-      <Input name="secret" type="password" autoComplete="current-password" placeholder="Admin secret" required autoFocus aria-label="Admin secret" />
-      {state?.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
+      {codeStage ? (
+        <>
+          <input type="hidden" name="email" value={state?.email ?? ''} />
+          {state?.info && <p className="text-sm text-muted-foreground">{state.info}</p>}
+          <Input key="code" name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="Code from the email" required autoFocus aria-label="Sign-in code" />
+        </>
+      ) : (
+        <Input key="email" name="email" type="email" autoComplete="email" placeholder="Email" required autoFocus aria-label="Email" defaultValue={state?.email} />
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Checking…' : 'Enter'}
+      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" name="intent" value={codeStage ? 'verify' : 'send'} className="w-full" disabled={pending}>
+        {pending ? 'Working…' : codeStage ? 'Verify' : 'Email me a code'}
       </Button>
+      {codeStage && (
+        <div className="flex justify-between text-xs">
+          <button type="submit" name="intent" value="restart" formNoValidate className="text-muted-foreground hover:text-foreground" disabled={pending}>
+            Use a different email
+          </button>
+          <button type="submit" name="intent" value="send" formNoValidate className="text-muted-foreground hover:text-foreground" disabled={pending}>
+            Resend
+          </button>
+        </div>
+      )}
     </form>
   );
 }

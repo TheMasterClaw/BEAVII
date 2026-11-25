@@ -14,6 +14,7 @@ import { CASH_TOKEN, STOCKS, explorerUrl } from '@/config/base-sepolia';
 import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
 import { FEE_LIMITS, bpsToPct, type EtfDetail } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { useListedStocks } from '@/hooks/use-listed-stocks';
 
 const usd = (n: number | null | undefined, max = 2) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: max });
@@ -234,7 +235,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
           <CardContent className="space-y-2">
             <div className="flex gap-2">
               <Input inputMode="decimal" placeholder="Shares" aria-label="Shares to redeem" value={redeemAmt} onChange={(e) => setRedeemAmt(e.target.value)} />
-              <Button variant="outline" size="sm" className="self-center" disabled={!me} onClick={() => setRedeemAmt(me ? String(me.shares) : '')}>
+              <Button variant="outline" size="sm" className="self-center" disabled={!me} onClick={() => setRedeemAmt(me ? ethers.formatEther(me.sharesWei) : '')}>
                 Max
               </Button>
             </div>
@@ -332,12 +333,15 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
   const totalBps = Object.values(weights).reduce((a, w) => a + bps(w), 0);
   const changed = etf.holdings.some((h) => bps(weights[h.token] ?? '0') !== h.targetWeightBps);
   const drift = Math.max(0, ...etf.holdings.map((h) => Math.abs(h.actualWeightBps - h.targetWeightBps)));
+  const listed = useListedStocks();
   const held = new Set(etf.holdings.map((h) => h.token.toLowerCase()));
-  const candidate = useMemo(() => {
+  const match = useMemo(() => {
     const q = newStock.trim().toLowerCase();
     return q ? STOCKS.find((s) => !held.has(s.address.toLowerCase()) && (s.symbol.toLowerCase() === q || s.testSymbol.toLowerCase() === q)) : undefined;
      
   }, [newStock, etf.holdings]);
+  const notListed = Boolean(match && listed && !listed.has(match.address.toLowerCase()));
+  const candidate = notListed ? undefined : match;
 
   const next = { managementFeeBps: bps(mgmt), entryFeeBps: bps(entry), exitFeeBps: bps(exit) };
   const feeTooHigh =
@@ -363,7 +367,11 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
           <Stat label="Earned to date" value={usd(etf.managerFeesUsd)} sub="at value when paid" />
           <Stat label="Accruing now" value={usd(accruedUsd, 4)} sub="not yet minted" />
           <Stat label="Run rate" value={`${usd(yearly)}/yr`} sub={`at today's AUM, after ${bpsToPct(etf.protocolFeeBps, 0)} protocol share`} />
-          <Stat label="Fee shares you hold" value={usd(etf.account?.feeRecipientValueUsd ?? 0)} sub={etf.account?.feeRecipientValueUsd ? 'in this wallet' : 'paid to another address'} />
+          <Stat
+            label="Fees paid to"
+            value={short(etf.feeRecipient)}
+            sub={etf.account && etf.feeRecipient.toLowerCase() === etf.account.address.toLowerCase() ? 'this wallet' : 'another address'}
+          />
         </div>
         <Button variant="outline" size="sm" disabled={!!busy || etf.accruedFeeShares === 0} onClick={() => run('Collect fees', () => send((v) => v.accrueFees()))}>
           {busy === 'Collect fees' ? 'Collecting…' : 'Collect accrued fees'}
@@ -402,6 +410,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
                 Add
               </Button>
             </div>
+            {notListed && <p className="text-xs text-red-500">{match!.testSymbol} isn&apos;t listed on the exchange yet, so an ITF can&apos;t hold it.</p>}
             <div className="flex flex-wrap gap-2">
               <Button
                 disabled={!!busy || !changed || totalBps !== 10_000}
