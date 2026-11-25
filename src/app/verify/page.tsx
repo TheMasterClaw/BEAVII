@@ -377,9 +377,9 @@ export default function VerifyPage() {
     input: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50",
     button: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
     buttonOutline: "w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
-    step: "flex items-center",
-    stepNumber: "h-8 w-8 rounded-full flex items-center justify-center",
-    stepText: "ml-2 text-sm",
+    step: "flex flex-col items-center gap-1 bg-background px-1 sm:flex-row sm:gap-0",
+    stepNumber: "h-8 w-8 shrink-0 rounded-full flex items-center justify-center",
+    stepText: "text-xs sm:ml-2 sm:text-sm",
   };
 
   useEffect(() => {
@@ -662,7 +662,7 @@ export default function VerifyPage() {
         <CardHeader>
           <CardTitle>Identity Verification</CardTitle>
           <CardDescription>
-            Verify your identity to interact with the ETF platform
+            Verify your identity to interact with the ITF platform
           </CardDescription>
         </CardHeader>
         
@@ -711,7 +711,7 @@ export default function VerifyPage() {
           {renderVerificationContent()}
         </CardContent>
         
-        <CardFooter className="flex justify-between border-t pt-4">
+        <CardFooter className="flex flex-wrap justify-between gap-2 border-t pt-4">
           <a 
             href="https://base.org" 
             target="_blank" 

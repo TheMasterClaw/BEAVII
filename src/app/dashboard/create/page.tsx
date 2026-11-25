@@ -4,9 +4,9 @@ export default function CreateEtfPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Launch your own ETF</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Launch your own ITF</h2>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          Build a basket of tokenized stocks, set your fees, and earn a share of the ETF for running it. Anyone can invest; you
+          Build a basket of tokenized stocks, set your fees, and earn a share of the ITF for running it. Anyone can invest; you
           manage the weights and rebalancing.
         </p>
       </div>

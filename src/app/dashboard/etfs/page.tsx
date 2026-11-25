@@ -27,7 +27,7 @@ export default function EtfDirectoryPage() {
       const res = await fetch(`/api/etfs${q}`, { cache: 'no-store' });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      if (!body.deployed) throw new Error('The ETF factory is not deployed yet.');
+      if (!body.deployed) throw new Error('The ITF factory is not deployed yet.');
       setEtfs(body.etfs);
     } catch (e) {
       setError((e as Error).message);
@@ -53,16 +53,16 @@ export default function EtfDirectoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">ETFs</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">ITFs</h1>
           <p className="mt-1 text-muted-foreground">Stock baskets built and managed by the community on Base Sepolia.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           <Button size="sm" asChild>
             <Link href="/dashboard/create">
-              <Plus className="mr-1 h-4 w-4" /> Launch an ETF
+              <Plus className="mr-1 h-4 w-4" /> Launch an ITF
             </Link>
           </Button>
         </div>
@@ -77,14 +77,14 @@ export default function EtfDirectoryPage() {
             onClick={() => setTab(t)}
             className={`rounded px-3 py-1 ${tab === t ? 'bg-muted font-medium' : 'text-muted-foreground'}`}
           >
-            {t === 'all' ? 'All ETFs' : 'Managed by you'}
+            {t === 'all' ? 'All ITFs' : 'Managed by you'}
           </button>
         ))}
       </div>
 
       {mine && account && etfs && etfs.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="ETFs you run" value={String(etfs.length)} />
+          <Stat label="ITFs you run" value={String(etfs.length)} />
           <Stat label="Assets under management" value={usd(totalAum)} />
           <Stat label="Fees earned to date" value={usd(totalEarned)} />
         </div>
@@ -93,10 +93,10 @@ export default function EtfDirectoryPage() {
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       {mine && !account ? (
-        <EmptyState title="Connect a wallet" body="Connect the wallet you launched ETFs with to see what they've earned." />
+        <EmptyState title="Connect a wallet" body="Connect the wallet you launched ITFs with to see what they've earned." />
       ) : etfs && etfs.length === 0 ? (
         <EmptyState
-          title={mine ? "You haven't launched an ETF yet" : 'No ETFs yet'}
+          title={mine ? "You haven't launched an ITF yet" : 'No ITFs yet'}
           body="Pick a basket of stocks, set your fees, and earn a share of the fund for managing it."
           cta
         />
@@ -163,7 +163,7 @@ function EmptyState({ title, body, cta }: { title: string; body: string; cta?: b
         <p className="mx-auto max-w-md text-sm text-muted-foreground">{body}</p>
         {cta && (
           <Button asChild>
-            <Link href="/dashboard/create">Launch an ETF</Link>
+            <Link href="/dashboard/create">Launch an ITF</Link>
           </Button>
         )}
       </CardContent>

@@ -2,6 +2,24 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Security headers (audit F-08). The dApp asks users to sign transactions, so it must never be framed.
+  // A full script CSP still needs testing against every Reown/WalletConnect origin before it can be enforced.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+        ],
+      },
+    ];
+  },
+
   // Base-only app: cross-chain and Flow pages were removed
   async redirects() {
     return ['/dashboard/flow-etf', '/dashboard/flow', '/dashboard/bridge', '/dashboard/swap', '/dashboard/auto-agent', '/dashboard/abi-test']

@@ -8,23 +8,17 @@ import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { ITFDetailDialog } from '@/components/etf/etf-detail-dialog';
 import Image from 'next/image';
 
-// Mock ITF data
+// Sample ITF data for the demo. Fictional names, figures and descriptions: no real people, brands or track records.
 const mockITFs = {
   blueChip: {
     name: 'BAEVII Blue Chip',
     description: 'Large-Cap Crypto Index',
     icon: '/baevii-logo.png',
-    influencerImage: '/chatgpt.png',
+    influencerImage: '/baevii-logo.png',
     expenseRatio: '0.25%',
     aum: '$12.4M',
     performance30D: '+16.3%',
     bio: 'A diversified portfolio of established large-cap cryptocurrencies designed for long-term growth and stability. This ITF focuses on proven projects with strong fundamentals and market leadership.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_bluechip',
-      youtube: 'https://youtube.com/@baevii_bluechip',
-      telegram: 'https://t.me/baevii_bluechip',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'BTC', weight: '35.2%' },
       { symbol: 'ETH', weight: '28.7%' },
@@ -41,12 +35,6 @@ const mockITFs = {
     aum: '$8.7M',
     performance30D: '+24.7%',
     bio: 'Targeting the most innovative DeFi protocols that are reshaping traditional finance. This ITF captures the growth potential of decentralized lending, trading, and yield farming platforms.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_defi',
-      youtube: 'https://youtube.com/@baevii_defi',
-      telegram: 'https://t.me/baevii_defi',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'FLOW', weight: '40%' },
       { symbol: 'BTC', weight: '25%' },
@@ -63,12 +51,6 @@ const mockITFs = {
     aum: '$6.2M',
     performance30D: '+42.1%',
     bio: 'The future of AI meets blockchain. This ITF invests in projects at the intersection of artificial intelligence and Web3, including decentralized AI networks, data marketplaces, and AI-powered DeFi protocols.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_ai',
-      youtube: 'https://youtube.com/@baevii_ai',
-      telegram: 'https://t.me/baevii_ai',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'OCEAN', weight: '30.2%' },
       { symbol: 'FET', weight: '25.7%' },
@@ -85,12 +67,6 @@ const mockITFs = {
     aum: '$5.1M',
     performance30D: '+28.5%',
     bio: 'Dive into the digital frontier with this metaverse-focused ITF. From virtual real estate to gaming tokens, this portfolio captures the growth of immersive digital experiences and virtual economies.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_metaverse',
-      youtube: 'https://youtube.com/@baevii_metaverse',
-      telegram: 'https://t.me/baevii_metaverse',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'MANA', weight: '28.5%' },
       { symbol: 'SAND', weight: '25.3%' },
@@ -107,12 +83,6 @@ const mockITFs = {
     aum: '$7.3M',
     performance30D: '+31.2%',
     bio: 'Scaling the future of blockchain. This ITF focuses on Layer 2 solutions that are solving Ethereum\'s scalability challenges, including rollups, sidechains, and other scaling technologies.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_l2',
-      youtube: 'https://youtube.com/@baevii_l2',
-      telegram: 'https://t.me/baevii_l2',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'MATIC', weight: '32.1%' },
       { symbol: 'ARB', weight: '28.4%' },
@@ -129,12 +99,6 @@ const mockITFs = {
     aum: '$4.2M',
     performance30D: '+19.8%',
     bio: 'Privacy is a fundamental human right. This ITF invests in privacy-focused cryptocurrencies and protocols that protect user data and enable anonymous transactions in the digital age.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_privacy',
-      youtube: 'https://youtube.com/@baevii_privacy',
-      telegram: 'https://t.me/baevii_privacy',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'XMR', weight: '35.5%' },
       { symbol: 'ZEC', weight: '25.2%' },
@@ -142,21 +106,15 @@ const mockITFs = {
       { symbol: 'ROSE', weight: '14.5%' }
     ]
   },
-  cryptoCasey: {
-    name: 'Crypto Casey',
+  momentum: {
+    name: 'Momentum Select',
     description: 'Technical Analysis Focus',
     icon: '/baevii-logo.png',
     influencerImage: '/ice.png',
     expenseRatio: '0.40%',
     aum: '$4.8M',
     performance30D: '+19.5%',
-    bio: 'Curated by renowned crypto analyst Crypto Casey, this ITF combines technical analysis with fundamental research to identify high-potential projects with strong momentum and growth prospects.',
-    socialMedia: {
-      twitter: 'https://twitter.com/cryptocasey',
-      youtube: 'https://youtube.com/@cryptocasey',
-      telegram: 'https://t.me/cryptocasey',
-      discord: 'https://discord.gg/cryptocasey'
-    },
+    bio: 'A sample strategy that combines technical signals with fundamental screens to pick projects with strong momentum.',
     holdings: [
       { symbol: 'BTC', weight: '40.2%' },
       { symbol: 'ETH', weight: '35.7%' },
@@ -164,21 +122,15 @@ const mockITFs = {
       { symbol: 'DOT', weight: '8.1%' }
     ]
   },
-  coinBureau: {
-    name: 'Coin Bureau',
+  research: {
+    name: 'Research Select',
     description: 'Research-Driven Portfolio',
     icon: '/baevii-logo.png',
     influencerImage: '/jellowchurch.png',
     expenseRatio: '0.35%',
     aum: '$9.2M',
     performance30D: '+22.7%',
-    bio: 'Backed by Coin Bureau\'s extensive research and analysis, this ITF focuses on projects with strong fundamentals, clear use cases, and sustainable tokenomics. Perfect for investors who value thorough due diligence.',
-    socialMedia: {
-      twitter: 'https://twitter.com/coinbureau',
-      youtube: 'https://youtube.com/@coinbureau',
-      telegram: 'https://t.me/coinbureau',
-      discord: 'https://discord.gg/coinbureau'
-    },
+    bio: 'A sample strategy focused on projects with clear use cases and sustainable tokenomics.',
     holdings: [
       { symbol: 'ETH', weight: '35.0%' },
       { symbol: 'DOT', weight: '25.5%' },
@@ -195,12 +147,6 @@ const mockITFs = {
     aum: '$15.4M',
     performance30D: '+17.9%',
     bio: 'Institutional-grade digital asset allocation designed for long-term wealth preservation and growth. This ITF focuses on established cryptocurrencies with proven track records and strong institutional adoption.',
-    socialMedia: {
-      twitter: 'https://twitter.com/baevii_institutional',
-      youtube: 'https://youtube.com/@baevii_institutional',
-      telegram: 'https://t.me/baevii_institutional',
-      discord: 'https://discord.gg/baevii'
-    },
     holdings: [
       { symbol: 'BTC', weight: '45.0%' },
       { symbol: 'ETH', weight: '35.0%' },
@@ -218,7 +164,7 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-6">
         <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold">Welcome to BAEVII ITF Manager</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Welcome to BAEVII ITF Manager</h1>
           <p className="text-muted-foreground max-w-md">
             Connect your wallet to start managing your ITFs with AI-powered insights.
           </p>
@@ -232,7 +178,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
             Welcome back! Your ITF portfolio overview.
           </p>
@@ -290,7 +236,10 @@ export default function DashboardPage() {
 
       {/* Our ITFs Section */}
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Our ITFs</h2>
+        <h2 className="text-2xl font-semibold">Sample ITFs</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Illustrative examples only. Names, AUM, fees and performance are made up, not real funds or results.
+        </p>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Object.entries(mockITFs).slice(0, 3).map(([key, itf]) => (
             <Card

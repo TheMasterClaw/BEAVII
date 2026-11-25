@@ -6,7 +6,6 @@ import "./modern-card.css";
 import { HydrationFix } from '@/components/HydrationFix';
 import { RootLayoutContent } from '@/components/RootLayoutContent';
 import { ReownProvider } from "@/components/ReownProvider";
-import { MoralisProvider } from "@/components/MoralisProvider";
 import { SidebarProvider } from "@/components/SidebarProvider";
 
 // Metadata for the site
@@ -61,11 +60,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <HydrationFix />
         <ReownProvider>
-          <MoralisProvider>
-            <SidebarProvider>
-              <RootLayoutContent>{children}</RootLayoutContent>
-            </SidebarProvider>
-          </MoralisProvider>
+          <SidebarProvider>
+            <RootLayoutContent>{children}</RootLayoutContent>
+          </SidebarProvider>
         </ReownProvider>
       </body>
     </html>

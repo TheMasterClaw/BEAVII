@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { ImprovedSidebarNav } from '@/components/dashboard/improved-sidebar-nav';
 import { PageTransition } from '@/components/ui/page-transition';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useSidebar } from '@/components/SidebarProvider';
 
 interface DashboardLayoutClientProps {
@@ -11,33 +13,51 @@ interface DashboardLayoutClientProps {
 }
 
 export function DashboardLayoutClient({ children }: DashboardLayoutClientProps) {
-  const { isSidebarOpen, toggleSidebar } = useSidebar();
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
+  const pathname = usePathname();
+
+  // Close the mobile drawer after navigating.
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname, setIsSidebarOpen]);
+
+  // Close on Escape and lock background scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsSidebarOpen(false);
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    const prevOverflow = document.body.style.overflow;
+    if (mobile) document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isSidebarOpen, setIsSidebarOpen]);
 
   return (
-    <div className="flex w-full">
-      {/* Sidebar */}
-      <aside className={`fixed z-40 h-full bg-background border-r w-64 top-16 left-0 transition-all duration-300 ease-in-out md:relative md:top-0 md:z-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="py-4 h-full flex flex-col">
-          {/* Toggle button */}
-          <div className="px-3 mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleSidebar}
-              className="w-full justify-start"
-            >
-              {isSidebarOpen ? (
-                <>
-                  <X className="h-4 w-4 mr-2" />
-                  <span>Close Menu</span>
-                </>
-              ) : (
-                <Menu className="h-4 w-4" />
-              )}
+    <div className="flex w-full min-w-0">
+      {/* Mobile backdrop */}
+      <div
+        aria-hidden="true"
+        onClick={() => setIsSidebarOpen(false)}
+        className={`fixed inset-0 top-16 z-30 bg-black/40 backdrop-blur-[1px] transition-opacity md:hidden ${
+          isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      {/* Sidebar: off-canvas drawer on mobile, sticky column from md up */}
+      <aside
+        className={`fixed left-0 top-16 z-40 h-[calc(100dvh-4rem)] w-72 max-w-[85vw] shrink-0 overflow-y-auto border-r bg-background transition-transform duration-300 ease-in-out md:sticky md:z-auto md:w-64 md:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex h-full flex-col py-4">
+          <div className="mb-2 flex justify-end px-3 md:hidden">
+            <Button variant="ghost" size="icon" aria-label="Close menu" onClick={() => setIsSidebarOpen(false)}>
+              <X className="h-5 w-5" />
             </Button>
           </div>
-
-          {/* Navigation */}
           <div className="flex-1">
             <ImprovedSidebarNav isCollapsed={false} />
           </div>
@@ -45,8 +65,8 @@ export function DashboardLayoutClient({ children }: DashboardLayoutClientProps) 
       </aside>
 
       {/* Main content */}
-      <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'md:ml-0' : ''}`}>
-        <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col">
+      <main className="min-w-0 flex-1">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
           <PageTransition className="flex-1 p-4 md:p-6 lg:p-8">
             {children}
           </PageTransition>
@@ -54,4 +74,4 @@ export function DashboardLayoutClient({ children }: DashboardLayoutClientProps) 
       </main>
     </div>
   );
-} 
+}

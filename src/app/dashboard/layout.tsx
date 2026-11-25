@@ -3,7 +3,7 @@ import { DashboardLayoutClient } from '@/components/dashboard/dashboard-layout-c
 
 export const metadata: Metadata = {
   title: 'BAEVII Dashboard',
-  description: 'Manage your crypto ETFs with AI-powered insights',
+  description: 'Manage your crypto ITFs with AI-powered insights',
 };
 
 interface DashboardLayoutProps {

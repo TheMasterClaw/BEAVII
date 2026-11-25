@@ -33,7 +33,7 @@ const PieChart = ({ data, size = 200 }: PieChartProps) => {
     };
 
     return (
-        <div className="w-full h-full flex items-center justify-center p-4 bg-transparent">
+        <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-transparent sm:flex-row">
             <div className="relative" style={{ width: size, height: size }}>
                 <svg width={size} height={size} viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }}>
                     {segments.map(segment => {
@@ -83,7 +83,7 @@ const PieChart = ({ data, size = 200 }: PieChartProps) => {
                      return null;
                 })}
             </div>
-            <div className="ml-8 flex flex-col gap-2 min-w-[150px]">
+            <div className="mt-4 flex flex-col gap-2 sm:mt-0 sm:ml-8 sm:min-w-[150px]">
                 {data.map((item) => (
                     <div
                         key={item.category}

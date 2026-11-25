@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mockVerificationDisabled } from '@/lib/mock-verification';
 import { 
   bioVerifications, 
   validateWalletAddress, 
@@ -13,6 +14,8 @@ const generateVerificationCode = (): string => {
 };
 
 export async function POST(request: NextRequest) {
+  const disabled = mockVerificationDisabled();
+  if (disabled) return disabled;
   try {
     const { walletAddress, twitterHandle } = await request.json();
     // Note: mockMode is always considered enabled in this route

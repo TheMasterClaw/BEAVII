@@ -91,6 +91,10 @@ contract StockBasketVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MAX_ENTRY_FEE_BPS = 100; // 1%
     uint256 public constant MAX_EXIT_FEE_BPS = 100; // 1%
     uint256 public constant FEE_TIMELOCK = 3 days;
+    /// @dev Burned on the first deposit (minted to DEAD) so the first depositor can't inflate the share price
+    ///      by donating tokens and round later depositors down. 1e9 shares ~= $0.000000001.
+    uint256 public constant DEAD_SHARES = 1e9;
+    address internal constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
     bool private _initialized;
     string private _name;
@@ -286,7 +290,22 @@ contract StockBasketVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     // ------------------------------------------------------------------ user
 
     /// @notice Deposit cash (the basket is bought at NAV) or a basket stock token (in kind).
+    ///         Prefer depositWithMin: this version accepts any share amount.
     function deposit(address token, uint256 amount) external nonReentrant whenNotPaused returns (uint256 shares) {
+        return _deposit(token, amount, 0);
+    }
+
+    /// @notice deposit() that reverts if fewer than `minSharesOut` shares would be minted (slippage / inflation guard).
+    function depositWithMin(address token, uint256 amount, uint256 minSharesOut)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        return _deposit(token, amount, minSharesOut);
+    }
+
+    function _deposit(address token, uint256 amount, uint256 minSharesOut) internal returns (uint256 shares) {
         if (amount == 0) revert ZeroAmount();
         accrueFees();
         uint256 navBefore = getTotalValue();
@@ -306,9 +325,15 @@ contract StockBasketVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         }
 
         uint256 gross = (supply == 0 || navBefore == 0) ? valueUsd : (valueUsd * supply) / navBefore;
+        if (supply == 0) {
+            if (gross <= DEAD_SHARES) revert ZeroAmount();
+            _mint(DEAD, DEAD_SHARES);
+            gross -= DEAD_SHARES;
+        }
         uint256 fee = (gross * fees.entryFeeBps) / BASIS_POINTS;
         shares = gross - fee;
         if (shares == 0) revert ZeroAmount();
+        if (shares < minSharesOut) revert Slippage(shares, minSharesOut);
         _mint(msg.sender, shares);
         if (fee > 0) _payFee(address(0), fee, FeeKind.Entry);
         emit Deposited(msg.sender, token, amount, valueUsd, shares);

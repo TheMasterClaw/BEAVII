@@ -22,7 +22,7 @@ createAppKit({
   defaultNetwork: baseSepolia,
   metadata,
   features: {
-    analytics: true,
+    analytics: false,
     email: true,
     socials: ['google', 'x', 'discord', 'github', 'apple'],
   },

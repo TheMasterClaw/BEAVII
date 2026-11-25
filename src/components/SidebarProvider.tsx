@@ -22,7 +22,8 @@ export const useSidebar = () => {
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark' | 'color-blind' | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Only drives the mobile drawer; the sidebar is always visible from md up.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -43,7 +44,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+    setIsSidebarOpen((open) => !open);
   };
 
   const contextValue: SidebarContextType = {

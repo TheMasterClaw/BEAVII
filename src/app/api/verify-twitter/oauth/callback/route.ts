@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mockVerificationDisabled } from '@/lib/mock-verification';
 
 // In a real implementation, this would be a database
 // For now, we'll use a mock in-memory storage
@@ -25,6 +26,8 @@ const mockBaseAttestation = async (data: Record<string, unknown>) => {
 };
 
 export async function GET(request: NextRequest) {
+  const disabled = mockVerificationDisabled();
+  if (disabled) return disabled;
   try {
     const { searchParams } = request.nextUrl;
     const code = searchParams.get('code');

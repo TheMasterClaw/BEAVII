@@ -9,6 +9,7 @@ import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { Menu } from 'lucide-react';
 import { BASE_SEPOLIA } from '@/config/base-sepolia';
 import { SidebarProvider, useSidebar } from './SidebarProvider';
+import { TestnetNotice } from './TestnetNotice';
 
 interface RootLayoutContentProps {
   children: React.ReactNode;
@@ -24,8 +25,8 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
       <ToastProvider>
         {/* Always show header on all pages */}
         <header className="fixed w-full bg-background/80 backdrop-blur-sm z-50 border-b text-foreground">
-          <div className="container mx-auto flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="container mx-auto flex h-16 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
@@ -35,7 +36,7 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <Link href="/">
+              <Link href="/" className="shrink-0">
                 <Image 
                   src="/baevii-logo.png" 
                   alt="BAEVII Logo" 
@@ -44,24 +45,24 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
                   className="h-8 w-auto cursor-pointer"
                 />
               </Link>
-              <span className="font-semibold text-lg text-foreground">BAEVII</span>
+              <span className="hidden font-semibold text-lg text-foreground min-[380px]:inline">BAEVII</span>
             </div>
 
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+              <Link href="/dashboard" className="hidden sm:block">
                 <Button variant="outline" size="sm">Dashboard</Button>
               </Link>
-              <Link href="/dashboard/create">
+              <Link href="/dashboard/create" className="hidden sm:block">
                 <Button size="sm">Create ITF</Button>
               </Link>
               
               {/* Network: Base only */}
               <div
-                className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+                className="hidden items-center gap-2 rounded-md border px-3 py-1.5 text-sm lg:flex"
                 title={`${BASE_SEPOLIA.name} (chain ${BASE_SEPOLIA.chainId})`}
               >
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-600" aria-hidden="true" />
-                <span className="hidden sm:inline">{BASE_SEPOLIA.name}</span>
+                <span>{BASE_SEPOLIA.name}</span>
               </div>
 
               <WalletConnectButton />
@@ -85,13 +86,14 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
         </header>
         
         <div className="pt-16">
+          <TestnetNotice />
           {children}
         </div>
         
         <footer className="py-8 border-t mt-auto">
           <div className="container mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="flex items-center gap-2 mb-4 md:mb-0">
+            <div className="flex flex-col items-center justify-between gap-4 text-center md:flex-row md:text-left">
+              <div className="flex items-center gap-2">
                 <Image 
                   src="/baevii-logo.png" 
                   alt="BAEVII Logo" 
@@ -101,7 +103,16 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
                 />
                 <span className="font-semibold text-foreground">BAEVII</span>
               </div>
-              <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} BAEVII Labs. All rights reserved.</p>
+              <div className="flex flex-col items-center gap-1 md:items-end">
+                <nav className="flex gap-4 text-sm text-muted-foreground" aria-label="Legal">
+                  <Link href="/terms" className="hover:text-foreground">Terms</Link>
+                  <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+                </nav>
+                <p className="text-xs text-muted-foreground">
+                  Testnet demo. Tokens have no value. Not investment advice. Not affiliated with Coinbase, Base or any listed company.
+                </p>
+                <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} BAEVII Labs. All rights reserved.</p>
+              </div>
             </div>
           </div>
         </footer>

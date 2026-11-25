@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
-import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine, Activity } from 'lucide-react';
+import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -129,18 +129,6 @@ export default function TokenizedStocksPage() {
       return body.txHashes?.[0];
     });
 
-  const syncPrices = () =>
-    run('NAV sync', async () => {
-      const res = await fetch('/api/stocks/agent', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'sync-prices' }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      return body.txHash;
-    });
-
   const deposit = () =>
     run('Deposit', async () => {
       const signer = await getSigner();
@@ -172,7 +160,7 @@ export default function TokenizedStocksPage() {
       if (filter === 'held' && !(Number(s.userBalance) > 0)) return false;
       if (filter === 'nav' && s.priceSource !== 'nav') return false;
       if (filter === 'basket' && !s.inBasket) return false;
-      return !q || s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (s.isin ?? '').toLowerCase().includes(q);
+      return !q || s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
     });
   }, [data, query, filter]);
   const PAGE = 50;
@@ -187,16 +175,16 @@ export default function TokenizedStocksPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Tokenized Stocks</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Tokenized Stocks</h1>
             <Badge variant="outline">Base Sepolia · {BASE_SEPOLIA_CHAIN_ID}</Badge>
           </div>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            A stock-basket ETF built on Base B-20 asset tokens. Test tokens mirror Coinbase tokenized stocks on Base and
+            A stock-basket ITF built on Base B-20 asset tokens. Test tokens mirror Coinbase tokenized stocks on Base and
             are priced at their live NAV from the Tokenized Stocks API.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
@@ -315,12 +303,9 @@ export default function TokenizedStocksPage() {
               <CardDescription>
                 Vault{' '}
                 <a className="underline font-mono" href={explorerUrl(data.vault.address)} target="_blank" rel="noreferrer">{short(data.vault.address)}</a>
-                {' · '}onchain prices are {stalest ? `${Math.round(stalest / 60)} min` : '—'} old
+                {' · '}onchain prices are {stalest ? `${Math.round(stalest / 60)} min` : '—'} old (the protocol agent syncs them on a schedule)
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={syncPrices} disabled={!!busy}>
-              <Activity className="h-4 w-4 mr-1" /> {busy === 'NAV sync' ? 'Syncing…' : 'Sync NAV'}
-            </Button>
           </CardHeader>
           <CardContent>
             <StockTable rows={basket} showWeights />
@@ -340,7 +325,7 @@ export default function TokenizedStocksPage() {
               </CardDescription>
             </div>
             <div className="flex flex-col gap-2 md:flex-row">
-              <Input placeholder="Search ticker, company or ISIN" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search stocks" className="md:max-w-xs" />
+              <Input placeholder="Search ticker or company" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search stocks" className="md:max-w-xs" />
               <div className="flex gap-1" role="group" aria-label="Filter">
                 {(['all', 'held', 'nav', 'basket'] as const).map((f) => (
                   <Button key={f} size="sm" variant={filter === f ? 'default' : 'outline'} onClick={() => setFilter(f)}>

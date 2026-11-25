@@ -18,23 +18,23 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <main className="min-h-screen flex flex-col items-center justify-center bg-background">
+      <main className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-10 sm:py-16">
         <div className="flex flex-col items-center justify-center">
           <Image
             src="/baevii-logo.png"
             alt="BAEVII Logo"
             width={256}
             height={256}
-            className="mb-4 drop-shadow-lg"
+            className="mb-4 h-32 w-32 drop-shadow-lg sm:h-64 sm:w-64"
             priority
           />
-          <h1 className="text-6xl font-extrabold text-foreground mb-8 tracking-tight">BAEVII</h1>
+          <h1 className="text-5xl sm:text-6xl font-extrabold text-foreground mb-6 sm:mb-8 tracking-tight">BAEVII</h1>
         </div>
         <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-fade-in">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-fade-in">
             AI-Powered ITF Management
           </h1>
-          <p className="text-xl md:text-2xl text-center text-muted-foreground max-w-3xl mx-auto animate-fade-in-delay mb-8">
+          <p className="mt-4 text-lg sm:text-xl md:text-2xl text-center text-muted-foreground max-w-3xl mx-auto animate-fade-in-delay mb-8">
             Create, manage, and optimize your cryptocurrency ITFs with advanced AI insights.
           </p>
           
@@ -53,7 +53,7 @@ export default function HomePage() {
           )}
 
           {/* Feature Grid */}
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
+          <div className="grid gap-6 md:grid-cols-3 md:gap-8 mt-10 sm:mt-16">
             <div className="text-center p-6">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Image src="/how-it-works-ai.png" alt="AI" width={32} height={32} />

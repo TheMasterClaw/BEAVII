@@ -7,7 +7,7 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from "@/component
 import { ClientCard } from "@/components/ui/client-card";
 import { BASE_TESTNET } from '@/lib/flow-contracts';
 
-// Add proper interface for ETF data
+// Add proper interface for ITF data
 interface TokenData {
   chainId: number;
   tokenAddress: string;
@@ -61,7 +61,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
       
       // Check if MetaMask is installed
       if (!window.ethereum) {
-        alert('Please install MetaMask to interact with the Base ETF');
+        alert('Please install MetaMask to interact with the Base ITF');
         return;
       }
       
@@ -136,7 +136,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
     }
   };
   
-  // Fetch ETF data from the API
+  // Fetch ITF data from the API
   const fetchEtfData = async () => {
     try {
       setLoading(true);
@@ -146,10 +146,10 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
       if (data.success) {
         setEtfData(data.data);
       } else {
-        console.error('Error fetching ETF data:', data.error);
+        console.error('Error fetching ITF data:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching ETF data:', error);
+      console.error('Error fetching ITF data:', error);
     } finally {
       setLoading(false);
     }
@@ -167,7 +167,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
       const nativeBalance = await provider.getBalance(address);
       setNativeBalance(ethers.formatEther(nativeBalance));
       
-      // Get ETF share balances (simplified for demo)
+      // Get ITF share balances (simplified for demo)
       // In a real app, you'd create contract instances and call balanceOf
       
       // Simulate contract calls
@@ -177,7 +177,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
     }
   };
   
-  // Deposit into ETF
+  // Deposit into ITF
   const handleDeposit = async () => {
     if (!userAddress || !depositAmount) return;
     
@@ -203,7 +203,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
         alert(`Successfully deposited ${depositAmount} USDC\nTransaction Hash: ${data.data.txHash}\nShares Received: ${data.data.shares}`);
         setDepositAmount('');
         
-        // Refresh balances and ETF data
+        // Refresh balances and ITF data
         fetchUserBalances(userAddress);
         fetchEtfData();
         
@@ -221,7 +221,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
     }
   };
   
-  // Withdraw from ETF
+  // Withdraw from ITF
   const handleWithdraw = async () => {
     if (!userAddress || !withdrawAmount) return;
     
@@ -244,10 +244,10 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
       const data = await response.json();
       
       if (data.success) {
-        alert(`Successfully withdrew ${withdrawAmount} ETF shares\nTransaction Hash: ${data.data.txHash}\nUSDC Received: ${data.data.amount}`);
+        alert(`Successfully withdrew ${withdrawAmount} ITF shares\nTransaction Hash: ${data.data.txHash}\nUSDC Received: ${data.data.amount}`);
         setWithdrawAmount('');
         
-        // Refresh balances and ETF data
+        // Refresh balances and ITF data
         fetchUserBalances(userAddress);
         fetchEtfData();
         
@@ -287,16 +287,16 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
       
       if (data.success) {
         if (data.data.rebalanced) {
-          alert(`ETF successfully rebalanced\nTransaction Hash: ${data.data.txHash}`);
+          alert(`ITF successfully rebalanced\nTransaction Hash: ${data.data.txHash}`);
           
-          // Refresh ETF data
+          // Refresh ITF data
           fetchEtfData();
           
           if (onSuccess) {
             onSuccess();
           }
         } else {
-          alert('ETF is already balanced. No rebalancing needed.');
+          alert('ITF is already balanced. No rebalancing needed.');
         }
       } else {
         alert(`Rebalance failed: ${data.error}`);
@@ -309,7 +309,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
     }
   };
   
-  // Fetch ETF data on initial load
+  // Fetch ITF data on initial load
   useEffect(() => {
     fetchEtfData();
   }, []);
@@ -317,17 +317,17 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
   return (
     <ClientCard className="w-full" hover appear>
       <CardHeader>
-        <CardTitle>Base ETF Manager</CardTitle>
+        <CardTitle>Base ITF Manager</CardTitle>
         <CardDescription>
-          Interact with the ETF vault on Base Sepolia
+          Interact with the ITF vault on Base Sepolia
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* ETF Info */}
+        {/* ITF Info */}
         {etfData && (
           <div className="p-4 border rounded-md bg-muted/20">
-            <h3 className="text-lg font-medium mb-2">ETF Info</h3>
+            <h3 className="text-lg font-medium mb-2">ITF Info</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="p-3 bg-primary/10 rounded-md">
                 <p className="text-xs text-muted-foreground">Total Value</p>
@@ -378,10 +378,10 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
                 disabled={loading || !connected || !etfData.needsRebalancing}
                 size="sm"
               >
-                {loading ? 'Processing...' : 'Rebalance ETF'}
+                {loading ? 'Processing...' : 'Rebalance ITF'}
               </Button>
               {!etfData.needsRebalancing && (
-                <p className="text-xs text-muted-foreground mt-1">ETF is already balanced</p>
+                <p className="text-xs text-muted-foreground mt-1">ITF is already balanced</p>
               )}
             </div>
           </div>
@@ -392,7 +392,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Deposit Section */}
             <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-lg font-medium mb-4">Deposit USDC to ETF</h3>
+              <h3 className="text-lg font-medium mb-4">Deposit USDC to ITF</h3>
               <div className="space-y-4">
                 <div>
                   <label htmlFor="depositAmount" className="block text-sm font-medium mb-1">
@@ -434,11 +434,11 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
             
             {/* Withdraw Section */}
             <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-lg font-medium mb-4">Withdraw USDC from ETF</h3>
+              <h3 className="text-lg font-medium mb-4">Withdraw USDC from ITF</h3>
               <div className="space-y-4">
                 <div>
                   <label htmlFor="withdrawAmount" className="block text-sm font-medium mb-1">
-                    ETF Shares
+                    ITF Shares
                   </label>
                   <div className="flex space-x-2">
                     <input
@@ -460,7 +460,7 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Available: {etfShareBalance} ETF Shares
+                    Available: {etfShareBalance} ITF Shares
                   </p>
                 </div>
                 

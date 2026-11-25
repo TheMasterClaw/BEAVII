@@ -30,7 +30,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(
-    justCreated ? { kind: 'ok', msg: 'Your ETF is live. Share this page so people can invest, then buy in yourself to seed it.' } : null,
+    justCreated ? { kind: 'ok', msg: 'Your ITF is live. Share this page so people can invest, then buy in yourself to seed it.' } : null,
   );
   const [depositAmt, setDepositAmt] = useState('100');
   const [redeemAmt, setRedeemAmt] = useState('');
@@ -75,14 +75,6 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
     return tx.hash;
   };
 
-  const syncPrices = () =>
-    run('Price sync', async () => {
-      const res = await fetch('/api/stocks/agent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'sync-prices' }) });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      return body.txHash ?? body.txHashes?.[0];
-    });
-
   const faucet = () =>
     run('Faucet', async () => {
       const res = await fetch('/api/stocks/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: account }) });
@@ -112,18 +104,18 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
     return (
       <Card>
         <CardHeader>
-          <CardTitle>ETF not found</CardTitle>
+          <CardTitle>ITF not found</CardTitle>
           <CardDescription>{loadError}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button variant="outline" asChild>
-            <Link href="/dashboard/etfs">Back to ETFs</Link>
+            <Link href="/dashboard/etfs">Back to ITFs</Link>
           </Button>
         </CardContent>
       </Card>
     );
   }
-  if (!etf) return <p className="text-sm text-muted-foreground">Loading ETF…</p>;
+  if (!etf) return <p className="text-sm text-muted-foreground">Loading ITF…</p>;
 
   const me = etf.account;
   const canTx = Boolean(account && !busy);
@@ -134,10 +126,10 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
           <Link href="/dashboard/etfs" className="text-sm text-muted-foreground hover:underline">
-            ← All ETFs
+            ← All ITFs
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">{etf.name}</h1>
+            <h1 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">{etf.name}</h1>
             <Badge variant="outline" className="font-mono">{etf.symbol}</Badge>
             {me?.isManager && <Badge>You manage this</Badge>}
             {etf.paused && <Badge variant="destructive">Paused</Badge>}
@@ -152,7 +144,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
             </a>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={load}>
             <RefreshCw className="mr-1 h-4 w-4" /> Refresh
           </Button>
@@ -197,7 +189,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
         </div>
       )}
 
-      {me?.isManager && <ManagerPanel etf={etf} busy={busy} run={run} send={send} onSyncPrices={syncPrices} />}
+      {me?.isManager && <ManagerPanel etf={etf} busy={busy} run={run} send={send} />}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
@@ -216,7 +208,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base"><ArrowDownToLine className="h-4 w-4" /> Buy {etf.symbol}</CardTitle>
             <CardDescription>
-              Pay tUSDC; the ETF buys each stock at NAV by weight.
+              Pay tUSDC; the ITF buys each stock at NAV by weight.
               {etf.fees.entryFeeBps > 0 && ` ${bpsToPct(etf.fees.entryFeeBps)} entry fee.`}
             </CardDescription>
           </CardHeader>
@@ -266,9 +258,6 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
               {etf.lastRebalance ? new Date(etf.lastRebalance * 1000).toLocaleString() : 'never'}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" disabled={!!busy} onClick={syncPrices}>
-            {busy === 'Price sync' ? 'Syncing…' : 'Sync prices'}
-          </Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -321,10 +310,9 @@ interface ManagerPanelProps {
   busy: string | null;
   run: (label: string, fn: () => Promise<string | undefined>) => Promise<void>;
   send: (fn: (v: ethers.Contract) => Promise<ethers.ContractTransactionResponse>) => Promise<string>;
-  onSyncPrices: () => void;
 }
 
-function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps) {
+function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [newStock, setNewStock] = useState('');
   const [mgmt, setMgmt] = useState('');
@@ -429,9 +417,8 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
               <Button variant="outline" disabled={!!busy || etf.paused} onClick={() => run('Rebalance', () => send((v) => v.rebalance()))}>
                 {busy === 'Rebalance' ? 'Rebalancing…' : `Rebalance (drift ${bpsToPct(drift)})`}
               </Button>
-              <Button variant="ghost" disabled={!!busy} onClick={onSyncPrices}>Sync prices first</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Rebalancing trades at NAV, so it doesn&apos;t change the fund&apos;s value. Prices must be under 7 days old.</p>
+            <p className="text-xs text-muted-foreground">Rebalancing trades at NAV, so it doesn&apos;t change the fund&apos;s value. Prices must be under 7 days old; the protocol agent syncs them on a schedule.</p>
           </div>
 
           <div className="space-y-3">
@@ -475,7 +462,7 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
                 disabled={!!busy}
                 onClick={() => run(etf.paused ? 'Unpause' : 'Pause', () => send((v) => (etf.paused ? v.emergencyUnpause() : v.emergencyPause())))}
               >
-                {etf.paused ? 'Unpause ETF' : 'Pause deposits'}
+                {etf.paused ? 'Unpause ITF' : 'Pause deposits'}
               </Button>
               <p className="mt-1 text-xs text-muted-foreground">Pausing stops deposits, cash redemptions and rebalancing. Holders can still redeem in kind.</p>
             </div>

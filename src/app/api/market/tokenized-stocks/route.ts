@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     const totals = tokens.reduce((a, t) => ({ marketCap: a.marketCap + (t.marketCap || 0), volume24h: a.volume24h + (t.volume24h || 0) }), { marketCap: 0, volume24h: 0 });
     return NextResponse.json({ source: 'coinmarketcap', chain: 'base', count: tokens.length, totals, tokens });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
+    console.error('GET /api/market/tokenized-stocks failed', err);
+    return NextResponse.json({ error: 'Market data unavailable' }, { status: 502 });
   }
 }

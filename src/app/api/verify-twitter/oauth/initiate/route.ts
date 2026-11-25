@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mockVerificationDisabled } from '@/lib/mock-verification';
 import { randomBytes } from 'crypto';
 
 // In a real implementation, this would be a database
@@ -26,6 +27,8 @@ const normalizeTwitterHandle = (handle: string): string => {
 };
 
 export async function POST(request: NextRequest) {
+  const disabled = mockVerificationDisabled();
+  if (disabled) return disabled;
   try {
     const { walletAddress, twitterHandle } = await request.json();
     

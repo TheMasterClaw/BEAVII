@@ -48,7 +48,7 @@ export function AgentMonitoringClient({ onSuccess }: AgentMonitoringClientProps)
       
   //     // Check if MetaMask is installed
   //     if (!window.ethereum) {
-  //       alert('Please install MetaMask to interact with the Base ETF');
+  //       alert('Please install MetaMask to interact with the Base ITF');
   //       return;
   //     }
       

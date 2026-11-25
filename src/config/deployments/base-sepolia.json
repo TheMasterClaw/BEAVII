@@ -7047,9 +7047,9 @@
     "deployTx": "0x9c8e95e3b432f9937cfb17e1d34f8db5aff0029c86c0cc62b55f2a1c5255c2e6"
   },
   "factory": {
-    "implementation": "0x30066A1de271FD0E19f8097B1F0f20f01BBA0c1C",
-    "address": "0x1fb1A31DdcAD12BC18D18A175B39CA2C2168ECfd",
-    "deployTx": "0x942b767355622f0d08e3f5f57b842a4a01faceb03f5d83a6da4a2cf07ed7429a",
+    "implementation": "0x5D04f93b1F2175ce6adba4aC6a93782b0E407D85",
+    "address": "0xF30480a76721a4972cead4cFa69e0ff083358ab8",
+    "deployTx": "0x185496e91864b2e5e4002c33a0fcae868f85d858cd71499cbf80271d0732697c",
     "treasury": "0x732EfdddFED16aAF18280F38DaeB2393a6F0ec55",
     "protocolFeeBps": 2000
   },
@@ -7097,5 +7097,23 @@
       "weight": 1428
     }
   ],
-  "deployedAt": "2026-11-25T10:56:51.999Z"
+  "deployedAt": "2026-11-25T10:56:51.999Z",
+  "legacy": [
+    {
+      "factory": {
+        "implementation": "0x30066A1de271FD0E19f8097B1F0f20f01BBA0c1C",
+        "address": "0x1fb1A31DdcAD12BC18D18A175B39CA2C2168ECfd",
+        "deployTx": "0x942b767355622f0d08e3f5f57b842a4a01faceb03f5d83a6da4a2cf07ed7429a",
+        "treasury": "0x732EfdddFED16aAF18280F38DaeB2393a6F0ec55",
+        "protocolFeeBps": 2000
+      },
+      "vault": {
+        "address": "0x1f5DD8aa681F112Fa6BdF2584Ae618FE678E62aB",
+        "name": "BEAVII Magnificent 7",
+        "symbol": "bMAG7",
+        "deployTx": "0x97d9ad17ccfab439b99a7312e8ebc3d83dceee860842fc5362d4c3b47b421d3c"
+      },
+      "replacedAt": "2026-11-25T12:16:12.672Z"
+    }
+  ]
 }

@@ -46,11 +46,24 @@ export function getCashToken(runner?: ethers.ContractRunner) {
   return getB20(CASH_TOKEN.address, runner);
 }
 
-/** Server-only: wallet holding MINT_ROLE on the test tokens and agent rights on the vault. */
+/**
+ * Server-only: the agent wallet (price pusher + rebalancer, MINT_ROLE for the faucet).
+ * It must NOT be the deployer: the deployer owns the exchange and factory and admins every token, so it never
+ * belongs in the web server's env. In production a missing or deployer-equal STOCK_AGENT_PRIVATE_KEY fails closed.
+ * Local dev may fall back to DEPLOYER_PRIVATE_KEY. Create the agent key with `node scripts/setup-agent-key.mjs`.
+ */
 export function getStockAgentSigner() {
   if (typeof window !== 'undefined') throw new Error('getStockAgentSigner is server-only');
-  const key = process.env.STOCK_AGENT_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY;
-  if (!key) throw new Error('Set STOCK_AGENT_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY in .env.local');
+  const agentKey = process.env.STOCK_AGENT_PRIVATE_KEY;
+  const deployerKey = process.env.DEPLOYER_PRIVATE_KEY;
+  if (process.env.NODE_ENV === 'production') {
+    if (!agentKey) throw new Error('STOCK_AGENT_PRIVATE_KEY is not set (the deployer key is not used in production)');
+    if (deployerKey && agentKey.toLowerCase() === deployerKey.toLowerCase()) {
+      throw new Error('STOCK_AGENT_PRIVATE_KEY must differ from DEPLOYER_PRIVATE_KEY; remove the deployer key from this environment');
+    }
+  }
+  const key = agentKey || deployerKey;
+  if (!key) throw new Error('Set STOCK_AGENT_PRIVATE_KEY in .env.local (run scripts/setup-agent-key.mjs)');
   return new ethers.Wallet(key, getBaseSepoliaProvider());
 }
 

@@ -1,0 +1,11 @@
+# Local-only: secrets, tooling state, caches
+.env
+.env.*
+!.env.example
+.data
+.claude
+.gitnexus
+.superstack
+.next
+node_modules
+coverage

@@ -20,9 +20,9 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics</h2>
         <p className="text-muted-foreground">
-          Detailed analysis and insights for your ETF portfolio
+          Detailed analysis and insights for your ITF portfolio
         </p>
       </div>
 
@@ -121,18 +121,18 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Portfolio Insights</CardTitle>
             <CardDescription>
-              AI-generated insights based on your data
+              Sample insights for illustration, not based on your holdings
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start">
                 <span className="mr-2 text-green-500">▲</span>
-                <span>Your DeFi ETF outperformed the market by 8.3% this month</span>
+                <span>Example: an ITF that beat its benchmark this month would be highlighted here</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-yellow-500">⚠️</span>
-                <span>High correlation between your ETFs suggests considering diversification</span>
+                <span>Example: highly correlated ITFs would be flagged as a concentration risk</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-blue-500">ℹ️</span>

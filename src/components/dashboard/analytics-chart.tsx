@@ -79,7 +79,7 @@ const generateChainDistributionData = (_itf: ITFData) => BASE_CHAIN_DISTRIBUTION
 const BASE_NETWORK_FLOW = {
   nodes: [
     { id: 'wallet', label: 'Wallet', icon: '/baevii-logo.png', color: '#45B7D1', position: [-2, 0, -2] as [number, number, number] },
-    { id: 'vault', label: 'ETF Vault', icon: '/sandwave.png', color: '#0052FF', position: [2, 0, -2] as [number, number, number] },
+    { id: 'vault', label: 'ITF Vault', icon: '/sandwave.png', color: '#0052FF', position: [2, 0, -2] as [number, number, number] },
     { id: 'stocks', label: 'Stock Tokens', icon: '/tornado.png', color: '#4ECDC4', position: [2, 0, 2] as [number, number, number] },
     { id: 'agent', label: 'Agent', icon: '/jellyfish.png', color: '#FFE66D', position: [-2, 0, 2] as [number, number, number] },
   ],
@@ -127,7 +127,7 @@ export function AnalyticsChart({ selectedTab = 'performance', timeframe = '1w', 
           { date: '2023-04-12', value: 115 },
         ],
         assetAllocation: [
-          { category: 'DeFi', percentage: 35, icon: '/1byone20.jpg', color: '#FF6B9D', index: 0 },
+          { category: 'DeFi', percentage: 35, icon: '/sandwave.png', color: '#FF6B9D', index: 0 },
           { category: 'Layer 1', percentage: 25, icon: '/tornado.png', color: '#4ECDC4', index: 1 },
           { category: 'NFT & Gaming', percentage: 15, icon: '/cactus.png', color: '#FFE66D', index: 2 },
           { category: 'Infrastructure', percentage: 15, icon: '/jellowchurch.png', color: '#FF6B6B', index: 3 },

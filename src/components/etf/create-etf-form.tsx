@@ -127,7 +127,7 @@ export function CreateETFForm() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>ETF factory not deployed</CardTitle>
+          <CardTitle>ITF factory not deployed</CardTitle>
           <CardDescription>Run `node scripts/deploy-base-sepolia.mjs` to deploy the Base Sepolia contracts.</CardDescription>
         </CardHeader>
       </Card>
@@ -139,7 +139,7 @@ export function CreateETFForm() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">1. Name your ETF</CardTitle>
+            <CardTitle className="text-base">1. Name your ITF</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-[1fr_160px]">
             <div className="space-y-1.5">
@@ -253,7 +253,7 @@ export function CreateETFForm() {
           <CardHeader>
             <CardTitle className="text-base">3. Set your fees</CardTitle>
             <CardDescription>
-              Fees are paid to you as new ETF shares, so your earnings grow with the fund. You can lower fees at any time.
+              Fees are paid to you as new ITF shares, so your earnings grow with the fund. You can lower fees at any time.
               Raising them waits {FEE_LIMITS.timelockDays} days so holders can leave first.
             </CardDescription>
           </CardHeader>
@@ -326,7 +326,7 @@ export function CreateETFForm() {
             )}
             {account ? (
               <Button className="w-full" disabled={busy || problems.length > 0} onClick={submit}>
-                {busy ? 'Confirm in wallet…' : wrongChain ? 'Switch to Base Sepolia & launch' : 'Launch ETF'}
+                {busy ? 'Confirm in wallet…' : wrongChain ? 'Switch to Base Sepolia & launch' : 'Launch ITF'}
               </Button>
             ) : (
               <Button className="w-full" onClick={() => connect().catch((e) => setError(txErrorMessage(e)))}>

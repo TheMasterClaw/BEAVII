@@ -12,7 +12,7 @@ export const WalletConnectButton = () => {
     return (
       <Button variant="outline" size="sm" onClick={openAccount} className="gap-2 font-mono">
         <CheckCircle className="w-4 h-4 text-green-500" />
-        {user.address.slice(0, 6)}…{user.address.slice(-4)}
+        <span className="hidden min-[400px]:inline">{user.address.slice(0, 6)}…</span>{user.address.slice(-4)}
       </Button>
     );
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mockVerificationDisabled } from '@/lib/mock-verification';
 
 // In a real implementation, this would be a database
 // For now, we'll use a mock in-memory storage
@@ -75,6 +76,8 @@ const mockBaseAttestation = async (attestationData: Record<string, unknown>) => 
 };
 
 export async function POST(request: NextRequest) {
+  const disabled = mockVerificationDisabled();
+  if (disabled) return disabled;
   try {
     const { walletAddress, twitterHandle, tweetId: rawTweetId } = await request.json();
     const mockMode = request.nextUrl.searchParams.get('mock') !== 'false';

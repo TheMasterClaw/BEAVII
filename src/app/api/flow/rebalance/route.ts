@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IS_DEPLOYED } from '@/config/base-sepolia';
+import { isAgentAuthorized, rebalanceFlagship } from '@/lib/stock-agent';
+
+export const dynamic = 'force-dynamic';
 
 /**
- * Legacy endpoint used by the ITF client. Forwards to the stock agent, which pushes live NAV
- * onchain and calls StockBasketVault.rebalance() (needs STOCK_AGENT_SECRET / CRON_SECRET).
+ * Legacy endpoint used by the ITF client: pushes live NAV onchain and calls StockBasketVault.rebalance()
+ * on the flagship vault. Requires `Authorization: Bearer <STOCK_AGENT_SECRET|CRON_SECRET>`, like the
+ * agent route. ETF managers rebalance their own vaults onchain from their wallet (rebalance() allows the owner).
  */
 export async function POST(request: NextRequest) {
   if (!IS_DEPLOYED) return NextResponse.json({ success: false, error: 'Base Sepolia vault not deployed' }, { status: 503 });
-  const secret = process.env.STOCK_AGENT_SECRET || process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ success: false, error: 'Set STOCK_AGENT_SECRET to enable server-side rebalancing' }, { status: 501 });
-  const res = await fetch(new URL('/api/stocks/agent', request.url), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${secret}` },
-    body: JSON.stringify({ action: 'rebalance' }),
-  });
-  const body = await res.json();
-  return NextResponse.json(
-    res.ok ? { success: true, data: { rebalanced: true, txHash: body.txHash, timestamp: new Date().toISOString() } } : { success: false, error: body.error },
-    { status: res.status },
-  );
+  if (!isAgentAuthorized(request)) {
+    return NextResponse.json({ success: false, error: 'Rebalancing is restricted to the protocol agent' }, { status: 401 });
+  }
+  try {
+    const r = await rebalanceFlagship();
+    return NextResponse.json({ success: true, data: { rebalanced: true, txHash: r.txHash, timestamp: new Date().toISOString() } });
+  } catch (e) {
+    console.error('flow rebalance failed', e);
+    return NextResponse.json({ success: false, error: 'Rebalance failed' }, { status: 500 });
+  }
 }

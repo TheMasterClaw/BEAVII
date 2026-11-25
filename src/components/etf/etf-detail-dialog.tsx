@@ -88,7 +88,7 @@ export function ITFDetailDialog({ isOpen, onClose, itf }: ITFDetailDialogProps) 
   return (
     <SidebarProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[calc(100vw-1.5rem)] sm:w-[90vw] max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader className="pb-6 border-b">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden">
@@ -101,7 +101,7 @@ export function ITFDetailDialog({ isOpen, onClose, itf }: ITFDetailDialogProps) 
                 />
               </div>
               <div>
-                <DialogTitle className="text-2xl mb-1">{itf.name}</DialogTitle>
+                <DialogTitle className="text-xl sm:text-2xl mb-1 pr-6">{itf.name}</DialogTitle>
                 <DialogDescription className="text-base">{itf.description}</DialogDescription>
               </div>
             </div>
@@ -109,7 +109,7 @@ export function ITFDetailDialog({ isOpen, onClose, itf }: ITFDetailDialogProps) 
 
           <div className="py-6 space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
               <Card className="p-4 bg-card/50">
                 <h3 className="text-sm font-medium text-muted-foreground mb-1">Expense Ratio</h3>
                 <p className="text-2xl font-bold text-foreground">{itf.expenseRatio}</p>
@@ -355,7 +355,7 @@ export function ITFDetailDialog({ isOpen, onClose, itf }: ITFDetailDialogProps) 
             </Tabs>
           </div>
 
-          <div className="flex justify-between items-center pt-6 border-t">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between sm:items-center pt-6 border-t">
             <div className="text-sm text-muted-foreground">
               Last rebalanced: 2 days ago
             </div>

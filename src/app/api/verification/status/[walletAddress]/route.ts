@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mockVerificationDisabled } from '@/lib/mock-verification';
 import { verifications, validateWalletAddress } from '@/lib/shared-storage';
 
 export function GET(
   request: NextRequest,
 ) {
+  const disabled = mockVerificationDisabled();
+  if (disabled) return disabled;
   try {
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');

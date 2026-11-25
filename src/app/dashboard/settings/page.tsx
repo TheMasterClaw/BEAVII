@@ -8,16 +8,16 @@ export default function SettingsPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account settings and advanced ETF configurations.
+          Manage your account settings and advanced ITF configurations.
         </p>
       </div>
 
-      {/* Base Sepolia tokenized-stock ETF */}
+      {/* Base Sepolia tokenized-stock ITF */}
       <div className="space-y-6">
         <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Tokenized Stock ETF</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Tokenized Stock ITF</h2>
           <p className="text-muted-foreground">
             Running on {BASE_SEPOLIA.name} (Chain ID: {BASE_SEPOLIA.chainId})
           </p>
@@ -69,7 +69,7 @@ export default function SettingsPage() {
           <div className="p-4 border rounded-lg">
             <h3 className="font-medium mb-2">Notifications</h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Configure how you receive notifications about your ETF portfolio.
+              Configure how you receive notifications about your ITF portfolio.
             </p>
             <div className="space-y-2">
               <label className="flex items-center space-x-2">

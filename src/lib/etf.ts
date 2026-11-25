@@ -14,8 +14,13 @@ export const STOCK_EXCHANGE_ABI = ExchangeJSON.abi as ethers.InterfaceAbi;
 const dep = DEPLOYMENT as typeof DEPLOYMENT & {
   factory?: { address: string; implementation?: string; protocolFeeBps?: number };
   exchange?: { address: string };
+  legacy?: { factory?: { address?: string } }[];
 };
 export const ETF_FACTORY_ADDRESS = dep.factory?.address ?? '';
+/** Retired factories (scripts/migrate-factory.mjs). Their ETFs stay live on the exchange, so keep listing them. */
+export const LEGACY_FACTORY_ADDRESSES = (dep.legacy ?? [])
+  .map((l) => l.factory?.address ?? '')
+  .filter((a) => a && a.toLowerCase() !== ETF_FACTORY_ADDRESS.toLowerCase());
 export const STOCK_EXCHANGE_ADDRESS = dep.exchange?.address ?? '';
 export const FACTORY_DEPLOYED = Boolean(ETF_FACTORY_ADDRESS);
 
@@ -215,11 +220,15 @@ export async function readEtfDetail(address: string, account?: string | null): P
 
 export async function listEtfs(manager?: string | null): Promise<EtfSummary[]> {
   if (!FACTORY_DEPLOYED) return [];
-  const f = getEtfFactory();
-  const addrs: string[] = manager ? await f.etfsOf(manager) : await f.allETFs();
+  // Current factory first, then retired ones; each newest first.
+  const list: string[] = [];
+  for (const addr of [ETF_FACTORY_ADDRESS, ...LEGACY_FACTORY_ADDRESSES]) {
+    const f = new ethers.Contract(addr, ETF_FACTORY_ABI, getBaseSepoliaProvider());
+    const addrs: string[] = manager ? await f.etfsOf(manager) : await f.allETFs();
+    list.push(...[...addrs].reverse());
+  }
   const out: EtfSummary[] = [];
   // Sequential chunks: each summary is one Multicall3 eth_call, and the public RPC allows ~25 req/s.
-  const list = [...addrs].reverse();
   for (let i = 0; i < list.length; i += 10) {
     const chunk = await Promise.allSettled(list.slice(i, i + 10).map((a) => readEtfSummary(a)));
     chunk.forEach((r, j) => {
@@ -232,7 +241,10 @@ export async function listEtfs(manager?: string | null): Promise<EtfSummary[]> {
 
 export async function isFactoryEtf(address: string): Promise<boolean> {
   if (!FACTORY_DEPLOYED || !ethers.isAddress(address)) return false;
-  return getEtfFactory().isVault(address);
+  for (const f of [ETF_FACTORY_ADDRESS, ...LEGACY_FACTORY_ADDRESSES]) {
+    if (await new ethers.Contract(f, ETF_FACTORY_ABI, getBaseSepoliaProvider()).isVault(address)) return true;
+  }
+  return false;
 }
 
 /** What a manager earns per year at a given AUM (management fee only, after the protocol cut). */

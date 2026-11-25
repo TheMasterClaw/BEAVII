@@ -6,13 +6,15 @@ export async function GET(
 ) {
   try {
     const { etfId } = await params;
-    console.log(`📊 Frontend: Getting REAL portfolio for ${etfId}`);
-    
+    // Only plain ids reach the backend: no "../", "?" or "#" to steer the request to another path (audit F-10).
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(etfId)) {
+      return NextResponse.json({ success: false, error: 'invalid ETF id' }, { status: 400 });
+    }
+
     // Call REAL backend server for portfolio data
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    console.log(`📡 Calling backend at: ${backendUrl}/api/etf/${etfId}/portfolio`);
-    
-    const response = await fetch(`${backendUrl}/api/etf/${etfId}/portfolio`, {
+
+    const response = await fetch(`${backendUrl}/api/etf/${encodeURIComponent(etfId)}/portfolio`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

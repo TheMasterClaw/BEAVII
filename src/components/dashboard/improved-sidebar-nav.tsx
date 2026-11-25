@@ -36,7 +36,7 @@ const defaultItems = [
     title: 'Tokenized Stocks',
     href: '/dashboard/stocks',
     icon: '📈',
-    description: 'Stock-basket ETF on Base Sepolia'
+    description: 'Stock-basket ITF on Base Sepolia'
   },
   {
     title: 'Agent Monitoring',
@@ -44,16 +44,22 @@ const defaultItems = [
     icon: '🤖'
   },
   {
-    title: 'Launch ETF',
+    title: 'Your Agents',
+    href: '/dashboard/agents',
+    icon: '🔌',
+    description: 'Connect Hermes, OpenClaw, Grok bots with their own accounts'
+  },
+  {
+    title: 'Launch ITF',
     href: '/dashboard/create',
     icon: '➕',
     description: 'Build a stock basket and earn its fees'
   },
   {
-    title: 'ETFs',
+    title: 'ITFs',
     href: '/dashboard/etfs',
     icon: '💼',
-    description: 'Browse community ETFs and the ones you manage'
+    description: 'Browse community ITFs and the ones you manage'
   },
   {
     title: 'Verify Account',
@@ -99,7 +105,7 @@ export function ImprovedSidebarNav({ items = defaultItems, className, isCollapse
               <Link
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors w-full",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 md:py-2 text-sm font-medium transition-colors w-full",
                   isActive 
                     ? "bg-accent text-accent-foreground" 
                     : "hover:bg-accent/50 hover:text-accent-foreground/90",
