@@ -10,13 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import {
   BASE_SEPOLIA,
   BASE_SEPOLIA_CHAIN_ID,
-  BASE_SEPOLIA_CHAIN_ID_HEX,
-  BASE_SEPOLIA_WALLET_PARAMS,
   CASH_TOKEN,
   STOCK_VAULT,
   explorerUrl,
 } from '@/config/base-sepolia';
 import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
+import { useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 interface StockRow {
   symbol: string;
@@ -60,22 +59,15 @@ interface StocksResponse {
   user: null | { cash: string; shares?: string; sharesValueUsd?: number };
 }
 
-type Eip1193 = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown>; on?: (e: string, cb: (...a: unknown[]) => void) => void; removeListener?: (e: string, cb: (...a: unknown[]) => void) => void };
-
 const usd = (n: number | null | undefined, max = 2) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: max });
 const qty = (s: string | number, max = 4) => Number(s).toLocaleString('en-US', { maximumFractionDigits: max });
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-function getInjected(): Eip1193 | null {
-  return typeof window !== 'undefined' ? ((window as unknown as { ethereum?: Eip1193 }).ethereum ?? null) : null;
-}
-
 export default function TokenizedStocksPage() {
   const [data, setData] = useState<StocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [account, setAccount] = useState('');
-  const [chainId, setChainId] = useState<number | null>(null);
+  const { account, wrongChain, connect: openLogin, ensureBaseSepolia, getSigner } = useInjectedWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string; tx?: string } | null>(null);
   const [depositAmt, setDepositAmt] = useState('100');
@@ -102,53 +94,12 @@ export default function TokenizedStocksPage() {
     return () => clearInterval(t);
   }, [load]);
 
-  // Track injected wallet account / chain
-  useEffect(() => {
-    const eth = getInjected();
-    if (!eth) return;
-    eth.request({ method: 'eth_accounts' }).then((a) => setAccount(((a as string[])[0] ?? '').toLowerCase())).catch(() => {});
-    eth.request({ method: 'eth_chainId' }).then((c) => setChainId(parseInt(c as string, 16))).catch(() => {});
-    const onAccounts = (a: unknown) => setAccount((((a as string[]) ?? [])[0] ?? '').toLowerCase());
-    const onChain = (c: unknown) => setChainId(parseInt(c as string, 16));
-    eth.on?.('accountsChanged', onAccounts);
-    eth.on?.('chainChanged', onChain);
-    return () => {
-      eth.removeListener?.('accountsChanged', onAccounts);
-      eth.removeListener?.('chainChanged', onChain);
-    };
-  }, []);
-
-  const ensureBaseSepolia = async (eth: Eip1193) => {
-    try {
-      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID_HEX }] });
-    } catch (e) {
-      if ((e as { code?: number }).code === 4902) {
-        await eth.request({ method: 'wallet_addEthereumChain', params: [BASE_SEPOLIA_WALLET_PARAMS] });
-      } else throw e;
-    }
-    setChainId(BASE_SEPOLIA_CHAIN_ID);
-  };
-
   const connect = async () => {
-    const eth = getInjected();
-    if (!eth) {
-      setStatus({ kind: 'err', msg: 'No browser wallet found. Install Coinbase Wallet or MetaMask.' });
-      return;
-    }
     try {
-      const accts = (await eth.request({ method: 'eth_requestAccounts' })) as string[];
-      setAccount(accts[0].toLowerCase());
-      await ensureBaseSepolia(eth);
+      await openLogin();
     } catch (e) {
       setStatus({ kind: 'err', msg: (e as Error).message });
     }
-  };
-
-  const getSigner = async () => {
-    const eth = getInjected();
-    if (!eth) throw new Error('No browser wallet');
-    await ensureBaseSepolia(eth);
-    return new ethers.BrowserProvider(eth as ethers.Eip1193Provider).getSigner();
   };
 
   const run = async (label: string, fn: () => Promise<string | undefined>) => {
@@ -228,7 +179,6 @@ export default function TokenizedStocksPage() {
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const pageRows = filtered.slice(page * PAGE, page * PAGE + PAGE);
   useEffect(() => setPage(0), [query, filter]);
-  const wrongChain = account && chainId !== null && chainId !== BASE_SEPOLIA_CHAIN_ID;
   const stalest = Math.max(0, ...basket.map((s) => s.onchainPriceAgeSec ?? 0));
   const canTransact = Boolean(account && data?.deployed && !busy);
   const canFaucet = Boolean(account && data?.cashToken?.address && !busy);
@@ -260,7 +210,7 @@ export default function TokenizedStocksPage() {
             </Button>
           )}
           {wrongChain && (
-            <Button size="sm" onClick={() => getInjected() && ensureBaseSepolia(getInjected()!)}>
+            <Button size="sm" onClick={() => ensureBaseSepolia().catch((e) => setStatus({ kind: 'err', msg: (e as Error).message }))}>
               Switch to Base Sepolia
             </Button>
           )}

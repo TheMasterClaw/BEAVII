@@ -1,64 +1,42 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { ethers } from 'ethers';
-import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID_HEX, BASE_SEPOLIA_WALLET_PARAMS } from '@/config/base-sepolia';
+import { useAppKit } from '@reown/appkit/react';
+import { useConnection, useSwitchChain } from 'wagmi';
+import { getConnectorClient } from 'wagmi/actions';
+import { BASE_SEPOLIA_CHAIN_ID } from '@/config/base-sepolia';
+import { wagmiConfig } from '@/config/reown';
 
-type Eip1193 = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (e: string, cb: (...a: unknown[]) => void) => void;
-  removeListener?: (e: string, cb: (...a: unknown[]) => void) => void;
-};
-
-function getInjected(): Eip1193 | null {
-  return typeof window !== 'undefined' ? ((window as unknown as { ethereum?: Eip1193 }).ethereum ?? null) : null;
-}
-
-/** Browser-wallet (EIP-1193) account on Base Sepolia, with connect / switch-network and a signer getter. */
+/**
+ * Account connected through Reown AppKit (any wallet, email or social login) on Base Sepolia,
+ * with connect / switch-network and an ethers signer getter.
+ */
 export function useInjectedWallet() {
-  const [account, setAccount] = useState('');
-  const [chainId, setChainId] = useState<number | null>(null);
+  const { open } = useAppKit();
+  const { address, chainId: connectedChainId } = useConnection();
+  const { mutateAsync: switchChain } = useSwitchChain();
 
-  useEffect(() => {
-    const eth = getInjected();
-    if (!eth) return;
-    eth.request({ method: 'eth_accounts' }).then((a) => setAccount(((a as string[])[0] ?? '').toLowerCase())).catch(() => {});
-    eth.request({ method: 'eth_chainId' }).then((c) => setChainId(parseInt(c as string, 16))).catch(() => {});
-    const onAccounts = (a: unknown) => setAccount((((a as string[]) ?? [])[0] ?? '').toLowerCase());
-    const onChain = (c: unknown) => setChainId(parseInt(c as string, 16));
-    eth.on?.('accountsChanged', onAccounts);
-    eth.on?.('chainChanged', onChain);
-    return () => {
-      eth.removeListener?.('accountsChanged', onAccounts);
-      eth.removeListener?.('chainChanged', onChain);
-    };
-  }, []);
+  const account = address ? address.toLowerCase() : '';
+  const chainId = address ? connectedChainId ?? null : null;
 
   const ensureBaseSepolia = useCallback(async () => {
-    const eth = getInjected();
-    if (!eth) throw new Error('No browser wallet found. Install Coinbase Wallet or MetaMask.');
-    try {
-      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID_HEX }] });
-    } catch (e) {
-      if ((e as { code?: number }).code === 4902) {
-        await eth.request({ method: 'wallet_addEthereumChain', params: [BASE_SEPOLIA_WALLET_PARAMS] });
-      } else throw e;
-    }
-    setChainId(BASE_SEPOLIA_CHAIN_ID);
-    return eth;
-  }, []);
+    if (!address) throw new Error('Log in first.');
+    if (connectedChainId !== BASE_SEPOLIA_CHAIN_ID) await switchChain({ chainId: BASE_SEPOLIA_CHAIN_ID });
+  }, [address, connectedChainId, switchChain]);
 
   const connect = useCallback(async () => {
-    const eth = getInjected();
-    if (!eth) throw new Error('No browser wallet found. Install Coinbase Wallet or MetaMask.');
-    const accts = (await eth.request({ method: 'eth_requestAccounts' })) as string[];
-    setAccount(accts[0].toLowerCase());
-    await ensureBaseSepolia();
-  }, [ensureBaseSepolia]);
+    await open();
+  }, [open]);
 
   const getSigner = useCallback(async () => {
-    const eth = await ensureBaseSepolia();
-    return new ethers.BrowserProvider(eth as ethers.Eip1193Provider).getSigner();
+    await ensureBaseSepolia();
+    const client = await getConnectorClient(wagmiConfig, { chainId: BASE_SEPOLIA_CHAIN_ID });
+    const provider = new ethers.BrowserProvider(client.transport as ethers.Eip1193Provider, {
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+      name: 'base-sepolia',
+    });
+    return provider.getSigner(client.account.address);
   }, [ensureBaseSepolia]);
 
   const wrongChain = Boolean(account && chainId !== null && chainId !== BASE_SEPOLIA_CHAIN_ID);

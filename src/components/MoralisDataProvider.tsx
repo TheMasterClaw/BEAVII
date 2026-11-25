@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import Moralis from 'moralis';
-import { useMoralisAuth } from './MoralisAuthProvider';
+import { useWalletAuth } from '@/hooks/use-wallet-auth';
 
 interface WalletData {
   address: string;
@@ -33,7 +33,7 @@ interface MoralisDataProviderProps {
 }
 
 export const MoralisDataProvider = ({ children }: MoralisDataProviderProps) => {
-  const { isAuthenticated, user } = useMoralisAuth();
+  const { isAuthenticated, user } = useWalletAuth();
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,13 +48,13 @@ export const MoralisDataProvider = ({ children }: MoralisDataProviderProps) => {
       // Fetch wallet balance
       const balance = await Moralis.EvmApi.balance.getNativeBalance({
         address: user.address,
-        chain: user.chainId,
+        chain: `0x${(user.chainId ?? 84532).toString(16)}`,
       });
 
       const walletData: WalletData = {
         address: user.address,
         balance: balance.result.balance.ether,
-        chainId: user.chainId,
+        chainId: String(user.chainId ?? 84532),
         lastUpdated: new Date().toISOString(),
       };
 

@@ -5,9 +5,8 @@ import "./animations.css";
 import "./modern-card.css";
 import { HydrationFix } from '@/components/HydrationFix';
 import { RootLayoutContent } from '@/components/RootLayoutContent';
-import { MoralisAuthProvider } from "@/components/MoralisAuthProvider";
+import { ReownProvider } from "@/components/ReownProvider";
 import { MoralisProvider } from "@/components/MoralisProvider";
-// import { PrivyWalletProvider } from "@/components/PrivyWalletProvider";
 import { SidebarProvider } from "@/components/SidebarProvider";
 
 // Metadata for the site
@@ -61,16 +60,13 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <HydrationFix />
-        <MoralisAuthProvider>
+        <ReownProvider>
           <MoralisProvider>
-            {/* Temporarily disabled to avoid conflicts */}
-            {/* <PrivyWalletProvider> */}
-              <SidebarProvider>
-                <RootLayoutContent>{children}</RootLayoutContent>
-              </SidebarProvider>
-            {/* </PrivyWalletProvider> */}
+            <SidebarProvider>
+              <RootLayoutContent>{children}</RootLayoutContent>
+            </SidebarProvider>
           </MoralisProvider>
-        </MoralisAuthProvider>
+        </ReownProvider>
       </body>
     </html>
   );

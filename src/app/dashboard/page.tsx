@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMoralisAuth } from '@/components/MoralisAuthProvider';
+import { useWalletAuth } from '@/hooks/use-wallet-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
@@ -211,7 +211,7 @@ const mockITFs = {
 };
 
 export default function DashboardPage() {
-  const { isAuthenticated, user } = useMoralisAuth();
+  const { isAuthenticated, user } = useWalletAuth();
   const [selectedITF, setSelectedITF] = useState<keyof typeof mockITFs | null>(null);
 
   if (!isAuthenticated) {
@@ -252,10 +252,8 @@ export default function DashboardPage() {
                 <span className="text-sm">{user?.chainId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Connected:</span>
-                <span className="text-sm">
-                  {user?.authenticatedAt ? new Date(user.authenticatedAt).toLocaleDateString() : 'Unknown'}
-                </span>
+                <span className="text-sm text-muted-foreground">Login:</span>
+                <span className="text-sm">Reown</span>
               </div>
             </div>
           </CardContent>

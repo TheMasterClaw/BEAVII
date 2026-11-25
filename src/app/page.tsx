@@ -1,12 +1,12 @@
 'use client';
 
-import { useMoralisAuth } from '@/components/MoralisAuthProvider';
+import { useWalletAuth } from '@/hooks/use-wallet-auth';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 import Link from 'next/link';
 import Image from 'next/image';
 
 export default function HomePage() {
-  const { isAuthenticated } = useMoralisAuth();
+  const { isAuthenticated } = useWalletAuth();
 
   return (
     <div className="min-h-screen bg-background">

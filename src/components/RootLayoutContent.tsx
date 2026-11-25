@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import ClientLayout from '@/components/ClientLayout';
 import { ToastProvider } from '@/components/ui/use-toast';
-// import { PrivyWalletProvider } from '@/components/PrivyWalletProvider';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { Menu } from 'lucide-react';
 import { BASE_SEPOLIA } from '@/config/base-sepolia';
