@@ -6,7 +6,7 @@ import { Plus, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { bpsToPct, type EtfSummary } from '@/lib/etf';
+import { bpsToPct, type EtfSummary } from '@/lib/etf-shared';
 import { useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 });

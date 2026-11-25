@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ethers } from 'ethers';
+import { parseEther, parseUnits, zeroAddress } from 'viem';
 import { ArrowDownToLine, ArrowUpFromLine, Coins, ExternalLink, RefreshCw, Scale, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { CASH_TOKEN, STOCKS, explorerUrl } from '@/config/base-sepolia';
-import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
-import { FEE_LIMITS, bpsToPct, type EtfDetail } from '@/lib/etf';
+import { b20Abi, vaultAbi } from '@/lib/abis/client';
+import { FEE_LIMITS, bpsToPct, type EtfDetail } from '@/lib/etf-shared';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 const usd = (n: number | null | undefined, max = 2) =>
@@ -25,7 +25,7 @@ type Status = { kind: 'ok' | 'err'; msg: string; tx?: string } | null;
 export default function EtfDetailPage({ params }: { params: Promise<{ address: string }> }) {
   const { address } = use(params);
   const justCreated = useSearchParams().get('created') === '1';
-  const { account, wrongChain, connect, getSigner } = useInjectedWallet();
+  const { account, wrongChain, connect, read, write } = useInjectedWallet();
   const [etf, setEtf] = useState<EtfDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -68,12 +68,9 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
     }
   };
 
-  const vaultWith = async () => new ethers.Contract(address, STOCK_VAULT_ABI, await getSigner());
-  const send = async (fn: (v: ethers.Contract) => Promise<ethers.ContractTransactionResponse>) => {
-    const tx = await fn(await vaultWith());
-    await tx.wait();
-    return tx.hash;
-  };
+  /** Write to this ETF's vault and wait for it to be mined; resolves to the tx hash. */
+  const send: SendVault = async (functionName, args = []) =>
+    (await write({ address, abi: vaultAbi, functionName, args })).transactionHash;
 
   const faucet = () =>
     run('Faucet', async () => {
@@ -85,17 +82,18 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
 
   const deposit = () =>
     run('Buy', async () => {
-      const signer = await getSigner();
-      const amount = ethers.parseUnits(depositAmt, CASH_TOKEN.decimals);
-      const cash = new ethers.Contract(CASH_TOKEN.address, B20_ABI, signer);
-      if ((await cash.allowance(account, address)) < amount) await (await cash.approve(address, amount)).wait();
-      return send((v) => v.deposit(CASH_TOKEN.address, amount));
+      const amount = parseUnits(depositAmt, CASH_TOKEN.decimals);
+      const cash = { address: CASH_TOKEN.address, abi: b20Abi };
+      if ((await read<bigint>({ ...cash, functionName: 'allowance', args: [account, address] })) < amount) {
+        await write({ ...cash, functionName: 'approve', args: [address, amount] });
+      }
+      return send('deposit', [CASH_TOKEN.address, amount]);
     });
 
   const redeem = () =>
     run('Redeem', async () => {
       const kind = inKind || Boolean(etf?.paused);
-      const hash = await send((v) => v.withdraw(ethers.parseEther(redeemAmt), kind ? ethers.ZeroAddress : CASH_TOKEN.address, 0));
+      const hash = await send('withdraw', [parseEther(redeemAmt), kind ? zeroAddress : CASH_TOKEN.address, BigInt(0)]);
       setRedeemAmt('');
       return hash;
     });
@@ -305,11 +303,13 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
 
 // ---------------------------------------------------------------------------------------------- manager
 
+type SendVault = (functionName: string, args?: readonly unknown[]) => Promise<string>;
+
 interface ManagerPanelProps {
   etf: EtfDetail;
   busy: string | null;
   run: (label: string, fn: () => Promise<string | undefined>) => Promise<void>;
-  send: (fn: (v: ethers.Contract) => Promise<ethers.ContractTransactionResponse>) => Promise<string>;
+  send: SendVault;
 }
 
 function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
@@ -365,7 +365,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
           <Stat label="Run rate" value={`${usd(yearly)}/yr`} sub={`at today's AUM, after ${bpsToPct(etf.protocolFeeBps, 0)} protocol share`} />
           <Stat label="Fee shares you hold" value={usd(etf.account?.feeRecipientValueUsd ?? 0)} sub={etf.account?.feeRecipientValueUsd ? 'in this wallet' : 'paid to another address'} />
         </div>
-        <Button variant="outline" size="sm" disabled={!!busy || etf.accruedFeeShares === 0} onClick={() => run('Collect fees', () => send((v) => v.accrueFees()))}>
+        <Button variant="outline" size="sm" disabled={!!busy || etf.accruedFeeShares === 0} onClick={() => run('Collect fees', () => send('accrueFees'))}>
           {busy === 'Collect fees' ? 'Collecting…' : 'Collect accrued fees'}
         </Button>
 
@@ -397,7 +397,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
               <Button
                 variant="outline"
                 disabled={!candidate || !!busy || etf.holdings.length >= FEE_LIMITS.maxAssets}
-                onClick={() => run(`Add ${candidate!.testSymbol}`, async () => { const h = await send((v) => v.addAsset(candidate!.address, 0)); setNewStock(''); return h; })}
+                onClick={() => run(`Add ${candidate!.testSymbol}`, async () => { const h = await send('addAsset', [candidate!.address, 0]); setNewStock(''); return h; })}
               >
                 Add
               </Button>
@@ -408,13 +408,13 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
                 onClick={() =>
                   run('Save weights', () => {
                     const rows = etf.holdings.map((h) => [h.token, bps(weights[h.token] ?? '0')] as const);
-                    return send((v) => v.setWeights(rows.map((r) => r[0]), rows.map((r) => r[1])));
+                    return send('setWeights', [rows.map((r) => r[0]), rows.map((r) => r[1])]);
                   })
                 }
               >
                 {busy === 'Save weights' ? 'Saving…' : 'Save weights'}
               </Button>
-              <Button variant="outline" disabled={!!busy || etf.paused} onClick={() => run('Rebalance', () => send((v) => v.rebalance()))}>
+              <Button variant="outline" disabled={!!busy || etf.paused} onClick={() => run('Rebalance', () => send('rebalance'))}>
                 {busy === 'Rebalance' ? 'Rebalancing…' : `Rebalance (drift ${bpsToPct(drift)})`}
               </Button>
             </div>
@@ -441,7 +441,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
             </div>
             <Button
               disabled={!!busy || !feesChanged || feeTooHigh}
-              onClick={() => run(isIncrease ? 'Schedule fee change' : 'Lower fees', () => send((v) => v.setFees(next)))}
+              onClick={() => run(isIncrease ? 'Schedule fee change' : 'Lower fees', () => send('setFees', [next]))}
             >
               {isIncrease ? `Schedule increase (${FEE_LIMITS.timelockDays}-day notice)` : 'Lower fees now'}
             </Button>
@@ -450,7 +450,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
                 <span>
                   Queued: {bpsToPct(etf.pendingFees.managementFeeBps)} / {bpsToPct(etf.pendingFees.entryFeeBps)} / {bpsToPct(etf.pendingFees.exitFeeBps)}
                 </span>
-                <Button size="sm" variant="outline" disabled={!!busy || !canApplyPending} onClick={() => run('Apply fees', () => send((v) => v.applyPendingFees()))}>
+                <Button size="sm" variant="outline" disabled={!!busy || !canApplyPending} onClick={() => run('Apply fees', () => send('applyPendingFees'))}>
                   {canApplyPending ? 'Apply' : `Ready ${new Date(etf.pendingFeesEta * 1000).toLocaleDateString()}`}
                 </Button>
               </div>
@@ -460,7 +460,7 @@ function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
                 variant={etf.paused ? 'outline' : 'destructive'}
                 size="sm"
                 disabled={!!busy}
-                onClick={() => run(etf.paused ? 'Unpause' : 'Pause', () => send((v) => (etf.paused ? v.emergencyUnpause() : v.emergencyPause())))}
+                onClick={() => run(etf.paused ? 'Unpause' : 'Pause', () => send(etf.paused ? 'emergencyUnpause' : 'emergencyPause'))}
               >
                 {etf.paused ? 'Unpause ITF' : 'Pause deposits'}
               </Button>

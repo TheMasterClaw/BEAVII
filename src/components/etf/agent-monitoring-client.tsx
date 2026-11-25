@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { isAddress } from 'viem';
 import { Button } from "@/components/ui/button";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientCard } from "@/components/ui/client-card";
-import { BASE_TESTNET } from '@/lib/flow-contracts';
+import { BASE_SEPOLIA as BASE_TESTNET } from '@/config/base-sepolia';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 
 
@@ -389,7 +389,7 @@ export function AgentMonitoringClient({ onSuccess }: AgentMonitoringClientProps)
               
               <Button 
                 onClick={handleSetAgent}
-                disabled={loading || !newAgentAddress || !ethers.isAddress(newAgentAddress)}
+                disabled={loading || !newAgentAddress || !isAddress(newAgentAddress)}
                 className="w-full"
               >
                 {loading ? 'Processing...' : 'Set New Agent'}

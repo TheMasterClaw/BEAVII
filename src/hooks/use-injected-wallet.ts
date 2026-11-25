@@ -1,16 +1,39 @@
 'use client';
 
 import { useCallback } from 'react';
-import { ethers } from 'ethers';
+import type { Abi, Address, Hex, TransactionReceipt } from 'viem';
 import { useAppKit } from '@reown/appkit/react';
 import { useConnection, useSwitchChain } from 'wagmi';
-import { getConnectorClient } from 'wagmi/actions';
+import {
+  readContract,
+  sendTransaction,
+  signMessage as signWalletMessage,
+  simulateContract,
+  waitForTransactionReceipt,
+  writeContract,
+} from 'wagmi/actions';
 import { BASE_SEPOLIA_CHAIN_ID } from '@/config/base-sepolia';
 import { wagmiConfig } from '@/config/reown';
 
+export interface ContractCall {
+  address: string;
+  abi: Abi;
+  functionName: string;
+  args?: readonly unknown[];
+}
+
+const chainId = BASE_SEPOLIA_CHAIN_ID;
+
+/** Wait for a mined transaction; like ethers' tx.wait(), a reverted transaction throws. */
+async function confirm(hash: Hex): Promise<TransactionReceipt> {
+  const receipt = await waitForTransactionReceipt(wagmiConfig, { hash, chainId });
+  if (receipt.status !== 'success') throw new Error(`Transaction ${hash} reverted`);
+  return receipt;
+}
+
 /**
  * Account connected through Reown AppKit (any wallet, email or social login) on Base Sepolia,
- * with connect / switch-network and an ethers signer getter.
+ * with connect / switch-network and viem-based contract read / write helpers (no ethers in the browser).
  */
 export function useInjectedWallet() {
   const { open } = useAppKit();
@@ -18,32 +41,68 @@ export function useInjectedWallet() {
   const { mutateAsync: switchChain } = useSwitchChain();
 
   const account = address ? address.toLowerCase() : '';
-  const chainId = address ? connectedChainId ?? null : null;
+  const currentChainId = address ? connectedChainId ?? null : null;
 
   const ensureBaseSepolia = useCallback(async () => {
     if (!address) throw new Error('Log in first.');
     if (connectedChainId !== BASE_SEPOLIA_CHAIN_ID) await switchChain({ chainId: BASE_SEPOLIA_CHAIN_ID });
+    return address;
   }, [address, connectedChainId, switchChain]);
 
   const connect = useCallback(async () => {
     await open();
   }, [open]);
 
-  const getSigner = useCallback(async () => {
-    await ensureBaseSepolia();
-    const client = await getConnectorClient(wagmiConfig, { chainId: BASE_SEPOLIA_CHAIN_ID });
-    const provider = new ethers.BrowserProvider(client.transport as ethers.Eip1193Provider, {
-      chainId: BASE_SEPOLIA_CHAIN_ID,
-      name: 'base-sepolia',
-    });
-    return provider.getSigner(client.account.address);
-  }, [ensureBaseSepolia]);
+  /** View call on Base Sepolia. */
+  const read = useCallback(
+    <T = unknown>(call: ContractCall) =>
+      readContract(wagmiConfig, { ...call, address: call.address as Address, chainId } as never) as Promise<T>,
+    [],
+  );
 
-  const wrongChain = Boolean(account && chainId !== null && chainId !== BASE_SEPOLIA_CHAIN_ID);
-  return { account, chainId, wrongChain, connect, ensureBaseSepolia, getSigner };
+  /**
+   * Simulate, send and wait for a contract write. Simulating first surfaces decoded custom errors
+   * (StalePrice, BadWeights, ...) before the wallet prompt, as ethers' gas estimation did.
+   */
+  const write = useCallback(
+    async (call: ContractCall & { value?: bigint }) => {
+      const from = await ensureBaseSepolia();
+      const { request } = await simulateContract(wagmiConfig, {
+        ...call,
+        address: call.address as Address,
+        account: from,
+        chainId,
+      } as never);
+      return confirm(await writeContract(wagmiConfig, request as never));
+    },
+    [ensureBaseSepolia],
+  );
+
+  /** Send native ETH and wait for it to be mined. */
+  const sendEth = useCallback(
+    async (to: string, value: bigint) => {
+      await ensureBaseSepolia();
+      return confirm(await sendTransaction(wagmiConfig, { to: to as Address, value, chainId }));
+    },
+    [ensureBaseSepolia],
+  );
+
+  /** EIP-191 personal_sign from the connected account. */
+  const signMessage = useCallback(
+    async (message: string) => {
+      const from = await ensureBaseSepolia();
+      return signWalletMessage(wagmiConfig, { account: from, message });
+    },
+    [ensureBaseSepolia],
+  );
+
+  const wrongChain = Boolean(account && currentChainId !== null && currentChainId !== BASE_SEPOLIA_CHAIN_ID);
+  return { account, chainId: currentChainId, wrongChain, connect, ensureBaseSepolia, read, write, sendEth, signMessage };
 }
 
-/** Short, human-readable message from an ethers / wallet error. */
+type WalkableError = { name?: string; data?: { errorName?: string } };
+
+/** Short, human-readable message from a viem / ethers / wallet error. */
 export function txErrorMessage(e: unknown) {
   const err = e as {
     reason?: string;
@@ -51,8 +110,11 @@ export function txErrorMessage(e: unknown) {
     message?: string;
     revert?: { name?: string };
     info?: { error?: { message?: string } };
+    walk?: (fn: (e: unknown) => boolean) => unknown;
   };
-  const name = err.revert?.name;
+  // viem wraps a decoded custom error in ContractFunctionRevertedError somewhere down the cause chain
+  const reverted = err.walk?.((c) => (c as WalkableError)?.name === 'ContractFunctionRevertedError') as WalkableError | undefined;
+  const name = err.revert?.name ?? reverted?.data?.errorName;
   if (name && CONTRACT_ERRORS[name]) return CONTRACT_ERRORS[name];
   if (name) return name;
   return err.reason ?? err.shortMessage ?? err.info?.error?.message ?? err.message ?? 'Transaction failed';

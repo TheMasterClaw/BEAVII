@@ -1,26 +1,15 @@
 /**
  * Ethers helpers for the Base Sepolia tokenized-stock vault and B-20 test tokens.
- * Safe to import on client and server; server-only signing lives in getStockAgentSigner().
+ * Server-side (uses ethers); client components use @/lib/abis/client. Signing lives in getStockAgentSigner().
  */
 import { ethers } from 'ethers';
 import VaultJSON from '@/lib/abis/StockBasketVault.json';
+import { B20_ABI } from '@/lib/abis/b20';
 import { BASE_SEPOLIA, CASH_TOKEN, EXCHANGE_ADDRESS, STOCK_VAULT } from '@/config/base-sepolia';
 
 export const STOCK_VAULT_ABI = VaultJSON.abi as ethers.InterfaceAbi;
 
-export const B20_ABI = [
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function mint(address to, uint256 amount)',
-  'function hasRole(bytes32 role, address account) view returns (bool)',
-  'function multiplier() view returns (uint256)',
-] as const;
+export { B20_ABI };
 
 export const MINT_ROLE = ethers.id('MINT_ROLE');
 

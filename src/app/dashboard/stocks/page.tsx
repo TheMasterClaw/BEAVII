@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ethers } from 'ethers';
+import { parseEther, parseUnits, zeroAddress } from 'viem';
 import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import {
   STOCK_VAULT,
   explorerUrl,
 } from '@/config/base-sepolia';
-import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
+import { b20Abi, vaultAbi } from '@/lib/abis/client';
 import { useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 interface StockRow {
@@ -67,7 +67,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export default function TokenizedStocksPage() {
   const [data, setData] = useState<StocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const { account, wrongChain, connect: openLogin, ensureBaseSepolia, getSigner } = useInjectedWallet();
+  const { account, wrongChain, connect: openLogin, ensureBaseSepolia, read, write } = useInjectedWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string; tx?: string } | null>(null);
   const [depositAmt, setDepositAmt] = useState('100');
@@ -131,26 +131,25 @@ export default function TokenizedStocksPage() {
 
   const deposit = () =>
     run('Deposit', async () => {
-      const signer = await getSigner();
-      const amount = ethers.parseUnits(depositAmt, CASH_TOKEN.decimals);
-      const cash = new ethers.Contract(CASH_TOKEN.address, B20_ABI, signer);
-      const allowance: bigint = await cash.allowance(account, STOCK_VAULT.address);
-      if (allowance < amount) await (await cash.approve(STOCK_VAULT.address, amount)).wait();
-      const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
-      const tx = await vault.deposit(CASH_TOKEN.address, amount);
-      await tx.wait();
-      return tx.hash;
+      const amount = parseUnits(depositAmt, CASH_TOKEN.decimals);
+      const cash = { address: CASH_TOKEN.address, abi: b20Abi };
+      const allowance = await read<bigint>({ ...cash, functionName: 'allowance', args: [account, STOCK_VAULT.address] });
+      if (allowance < amount) await write({ ...cash, functionName: 'approve', args: [STOCK_VAULT.address, amount] });
+      const r = await write({ address: STOCK_VAULT.address, abi: vaultAbi, functionName: 'deposit', args: [CASH_TOKEN.address, amount] });
+      return r.transactionHash;
     });
 
   const redeem = () =>
     run('Redeem', async () => {
-      const signer = await getSigner();
-      const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
-      const shares = ethers.parseEther(redeemAmt);
-      const tx = await vault.withdraw(shares, redeemInKind ? ethers.ZeroAddress : CASH_TOKEN.address, 0);
-      await tx.wait();
+      const shares = parseEther(redeemAmt);
+      const r = await write({
+        address: STOCK_VAULT.address,
+        abi: vaultAbi,
+        functionName: 'withdraw',
+        args: [shares, redeemInKind ? zeroAddress : CASH_TOKEN.address, BigInt(0)],
+      });
       setRedeemAmt('');
-      return tx.hash;
+      return r.transactionHash;
     });
 
   const basket = useMemo(() => (data?.stocks ?? []).filter((s) => s.inBasket), [data]);

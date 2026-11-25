@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ethers } from 'ethers';
+import { parseEther, parseUnits, type TransactionReceipt } from 'viem';
 import { Bot, Check, Copy, KeyRound, RefreshCw, ShieldCheck, ShieldOff, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { CASH_TOKEN, explorerUrl } from '@/config/base-sepolia';
-import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
+import { b20Abi, vaultAbi } from '@/lib/abis/client';
 import { ownerMessage, type OwnerAction } from '@/lib/agent-accounts/owner-message';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
 
@@ -37,7 +37,7 @@ const fmt = (n: number, d = 2) => n.toLocaleString('en-US', { maximumFractionDig
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export default function AgentsPage() {
-  const { account, connect, getSigner } = useInjectedWallet();
+  const { account, connect, write, sendEth, signMessage } = useInjectedWallet();
   const [agents, setAgents] = useState<AgentStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -83,9 +83,8 @@ export default function AgentsPage() {
   };
 
   const signOwner = async (action: OwnerAction, agent: string, details: Record<string, unknown>) => {
-    const signer = await getSigner();
     const issuedAt = new Date().toISOString();
-    const signature = await signer.signMessage(ownerMessage({ action, owner: account, agent, details, issuedAt }));
+    const signature = await signMessage(ownerMessage({ action, owner: account, agent, details, issuedAt }));
     return { issuedAt, signature };
   };
 
@@ -117,38 +116,34 @@ export default function AgentsPage() {
       setMaxTrade('');
     });
 
-  const tx = async (p: Promise<ethers.ContractTransactionResponse | ethers.TransactionResponse>) => {
-    const t = await p;
-    await t.wait();
-    return t.hash;
-  };
-  const cashWith = async () => new ethers.Contract(CASH_TOKEN.address, B20_ABI, await getSigner());
-  const vaultWith = async (etf: string) => new ethers.Contract(etf, STOCK_VAULT_ABI, await getSigner());
+  const tx = async (p: Promise<TransactionReceipt>) => (await p).transactionHash;
+  const cash = (functionName: string, args: readonly unknown[]) => write({ address: CASH_TOKEN.address, abi: b20Abi, functionName, args });
+  const vault = (etf: string, functionName: string, args: readonly unknown[]) => write({ address: etf, abi: vaultAbi, functionName, args });
 
   const actions = {
     fundCash: (a: AgentStatus, amount: string) =>
       run(`fund-${a.account.id}`, async () => {
-        await tx((await cashWith()).transfer(a.wallet.address, ethers.parseUnits(amount, CASH_TOKEN.decimals)));
+        await tx(cash('transfer', [a.wallet.address, parseUnits(amount, CASH_TOKEN.decimals)]));
         return `Sent ${amount} ${CASH_TOKEN.symbol} to ${a.account.name}.`;
       }),
     fundGas: (a: AgentStatus) =>
       run(`gas-${a.account.id}`, async () => {
-        await tx((await getSigner()).sendTransaction({ to: a.wallet.address, value: ethers.parseEther('0.002') }));
+        await tx(sendEth(a.wallet.address, parseEther('0.002')));
         return `Sent 0.002 ETH for gas to ${a.account.name}.`;
       }),
     allowSpend: (a: AgentStatus, amount: string) =>
       run(`spend-${a.account.id}`, async () => {
-        await tx((await cashWith()).approve(a.wallet.address, ethers.parseUnits(amount || '0', CASH_TOKEN.decimals)));
+        await tx(cash('approve', [a.wallet.address, parseUnits(amount || '0', CASH_TOKEN.decimals)]));
         return Number(amount) > 0 ? `${a.account.name} may now spend up to ${amount} ${CASH_TOKEN.symbol} of yours.` : 'Spending permission revoked.';
       }),
     allowSell: (a: AgentStatus, etf: EtfRow, shares: string) =>
       run(`sell-${a.account.id}-${etf.address}`, async () => {
-        await tx((await vaultWith(etf.address)).approve(a.wallet.address, ethers.parseEther(shares || '0')));
+        await tx(vault(etf.address, 'approve', [a.wallet.address, parseEther(shares || '0')]));
         return Number(shares) > 0 ? `${a.account.name} may now sell up to ${shares} ${etf.symbol} shares of yours.` : `Sell permission on ${etf.symbol} revoked.`;
       }),
     allowRebalance: (a: AgentStatus, etf: EtfRow, on: boolean) =>
       run(`rebal-${a.account.id}-${etf.address}`, async () => {
-        await tx((await vaultWith(etf.address)).setAgentAuthorization(a.wallet.address, on));
+        await tx(vault(etf.address, 'setAgentAuthorization', [a.wallet.address, on]));
         return on ? `${a.account.name} may now rebalance ${etf.symbol}.` : `${a.account.name} can no longer rebalance ${etf.symbol}.`;
       }),
     withdraw: (a: AgentStatus, asset: string, label: string) =>

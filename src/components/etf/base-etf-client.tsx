@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientCard } from "@/components/ui/client-card";
-import { BASE_TESTNET } from '@/lib/flow-contracts';
+import { BASE_SEPOLIA as BASE_TESTNET } from '@/config/base-sepolia';
 
 // Add proper interface for ITF data
 interface TokenData {
@@ -160,12 +160,11 @@ export function BaseETFClient({ onSuccess }: BaseETFClientProps) {
     if (!address) return;
     
     try {
-      // Set up provider
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      
-      // Get native ETH balance
-      const nativeBalance = await provider.getBalance(address);
-      setNativeBalance(ethers.formatEther(nativeBalance));
+      // Get native ETH balance straight from the injected provider
+      const eth = window.ethereum as { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
+      if (!eth) return;
+      const nativeBalance = (await eth.request({ method: 'eth_getBalance', params: [address, 'latest'] })) as string;
+      setNativeBalance(formatEther(BigInt(nativeBalance)));
       
       // Get ITF share balances (simplified for demo)
       // In a real app, you'd create contract instances and call balanceOf

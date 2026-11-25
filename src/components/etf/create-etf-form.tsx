@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ethers } from 'ethers';
+import { isAddress, parseEventLogs, zeroAddress } from 'viem';
 import { Search, Wallet, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { STOCKS, type TestStock } from '@/config/base-sepolia';
-import { ETF_FACTORY_ABI, ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, FEE_LIMITS, estimateManagerYearlyUsd } from '@/lib/etf';
+import { ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, FEE_LIMITS, estimateManagerYearlyUsd } from '@/lib/etf-shared';
+import { factoryAbi } from '@/lib/abis/client';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
 
 type Stock = TestStock & { priceUsd?: number | null };
@@ -24,7 +25,7 @@ const pctToBps = (s: string) => Math.round(Number(s || 0) * 100);
 
 export function CreateETFForm() {
   const router = useRouter();
-  const { account, wrongChain, connect, getSigner } = useInjectedWallet();
+  const { account, wrongChain, connect, write } = useInjectedWallet();
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [description, setDescription] = useState('');
@@ -64,7 +65,7 @@ export function CreateETFForm() {
     fees.exitFeeBps > FEE_LIMITS.exitBps && `Exit fee max ${FEE_LIMITS.exitBps / 100}%`,
     [mgmtPct, entryPct, exitPct].some((v) => !(Number(v) >= 0)) && 'Fees must be zero or more',
   ].filter(Boolean) as string[];
-  const recipientError = feeRecipient && !ethers.isAddress(feeRecipient) ? 'Not a valid address' : null;
+  const recipientError = feeRecipient && !isAddress(feeRecipient) ? 'Not a valid address' : null;
   const cut = protocolFeeBps ?? 0;
   const aumN = Math.max(0, Number(aum) || 0);
   const yearlyMgmt = estimateManagerYearlyUsd(aumN, fees, cut);
@@ -94,27 +95,23 @@ export function CreateETFForm() {
     if (problems.length) return;
     setBusy(true);
     try {
-      const signer = await getSigner();
-      const factory = new ethers.Contract(ETF_FACTORY_ADDRESS, ETF_FACTORY_ABI, signer);
-      const tx = await factory.createETF({
-        name: name.trim(),
-        symbol: symbol.trim(),
-        description: description.trim(),
-        feeRecipient: feeRecipient || ethers.ZeroAddress,
-        tokens: picks.map((p) => p.stock.address),
-        weights: picks.map((p) => pctToBps(p.weightPct)),
-        fees,
+      const receipt = await write({
+        address: ETF_FACTORY_ADDRESS,
+        abi: factoryAbi,
+        functionName: 'createETF',
+        args: [
+          {
+            name: name.trim(),
+            symbol: symbol.trim(),
+            description: description.trim(),
+            feeRecipient: feeRecipient || zeroAddress,
+            tokens: picks.map((p) => p.stock.address),
+            weights: picks.map((p) => pctToBps(p.weightPct)),
+            fees,
+          },
+        ],
       });
-      const receipt = await tx.wait();
-      const ev = receipt.logs
-        .map((l: ethers.Log) => {
-          try {
-            return factory.interface.parseLog(l);
-          } catch {
-            return null;
-          }
-        })
-        .find((e: ethers.LogDescription | null) => e?.name === 'ETFCreated');
+      const [ev] = parseEventLogs({ abi: factoryAbi, logs: receipt.logs, eventName: 'ETFCreated' }) as unknown as { args: { vault: string } }[];
       router.push(ev ? `/dashboard/etfs/${ev.args.vault}?created=1` : '/dashboard/etfs');
     } catch (e) {
       setError(txErrorMessage(e));
