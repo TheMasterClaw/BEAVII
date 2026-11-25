@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { bpsToPct, type EtfSummary } from '@/lib/etf';
 import { useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { NETWORK } from '@/config/network';
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 });
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -54,7 +55,7 @@ export default function EtfDirectoryPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">ETFs</h1>
-          <p className="mt-1 text-muted-foreground">Stock baskets built and managed by the community on Base Sepolia.</p>
+          <p className="mt-1 text-muted-foreground">Stock baskets built and managed by the community on {NETWORK.name}.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>

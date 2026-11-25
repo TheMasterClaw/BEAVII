@@ -1,139 +1,95 @@
 'use client';
 
-import { BaseETFClient } from "@/components/etf/base-etf-client";
-import { BASE_SEPOLIA, CASH_TOKEN, IS_DEPLOYED, STOCKS, STOCK_VAULT, explorerUrl } from "@/config/base-sepolia";
+import {
+  CASH_TOKEN,
+  DEPLOYMENT,
+  FACTORY_ADDRESS,
+  IS_DEPLOYED,
+  IS_TESTNET,
+  NETWORK,
+  ORACLE_ADDRESS,
+  STOCKS,
+  STOCK_VAULT,
+  VENUE_ADDRESS,
+  explorerUrl,
+} from '@/config/network';
+
+function AddressRow({ label, address }: { label: string; address?: string }) {
+  if (!address) return null;
+  return (
+    <li>
+      {label}:{' '}
+      <a className="font-mono text-xs hover:underline" href={explorerUrl(address)} target="_blank" rel="noopener noreferrer">
+        {address}
+      </a>
+    </li>
+  );
+}
 
 export default function SettingsPage() {
+  const venueLabel = DEPLOYMENT.venue?.kind === 'uniswap-v3' ? 'Trading venue (Uniswap V3)' : 'Trading venue (testnet exchange)';
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and advanced ETF configurations.
-        </p>
+        <p className="text-muted-foreground">Network and contract information for this deployment.</p>
       </div>
 
-      {/* Base Sepolia tokenized-stock ETF */}
       <div className="space-y-6">
         <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Tokenized Stock ETF</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Tokenized Stock ETFs</h2>
           <p className="text-muted-foreground">
-            Running on {BASE_SEPOLIA.name} (Chain ID: {BASE_SEPOLIA.chainId})
+            Running on {NETWORK.name} (Chain ID: {NETWORK.chainId})
           </p>
         </div>
 
-        <BaseETFClient onSuccess={() => console.log('Operation completed successfully')} />
-
-        <div className="p-4 bg-muted/30 rounded-lg text-sm">
-          <h3 className="font-medium mb-2">About the stock vault</h3>
+        <div className="rounded-lg bg-muted/30 p-4 text-sm">
+          <h3 className="mb-2 font-medium">How it works</h3>
           <p className="mb-3">
-            The vault holds a weighted basket of Base B-20 test tokens that mirror Coinbase tokenized stocks, priced at
-            live NAV. Deposit and redeem on the <a href="/dashboard/stocks" className="text-primary hover:underline">Tokenized Stocks</a> page.
+            Each ETF holds a weighted basket of {IS_TESTNET ? 'B-20 test tokens that mirror ' : ''}Coinbase tokenized stocks,
+            priced by the shared price oracle. Deposits are swapped into the basket through the trading venue, and every
+            trade must fill within the protocol&apos;s slippage cap of the oracle price. Deposit and redeem on the{' '}
+            <a href="/dashboard/stocks" className="text-primary hover:underline">Tokenized Stocks</a> page.
           </p>
 
-          <h4 className="font-medium mb-1">Deployed Contracts</h4>
+          <h4 className="mb-1 font-medium">Deployed contracts</h4>
           {IS_DEPLOYED ? (
-            <ul className="list-disc list-inside mb-3 space-y-1">
-              <li>Stock vault: <a className="text-xs font-mono hover:underline" href={explorerUrl(STOCK_VAULT.address)} target="_blank" rel="noopener noreferrer">{STOCK_VAULT.address}</a></li>
-              <li>{CASH_TOKEN.symbol}: <a className="text-xs font-mono hover:underline" href={explorerUrl(CASH_TOKEN.address)} target="_blank" rel="noopener noreferrer">{CASH_TOKEN.address}</a></li>
-              <li>B-20 factory: <code className="text-xs">0xB20f000000000000000000000000000000000000</code></li>
-              <li>{STOCKS.length} test stocks (see the Tokenized Stocks page)</li>
+            <ul className="mb-3 list-inside list-disc space-y-1">
+              <AddressRow label="ETF factory" address={FACTORY_ADDRESS} />
+              <AddressRow label="Price oracle" address={ORACLE_ADDRESS} />
+              <AddressRow label={venueLabel} address={VENUE_ADDRESS} />
+              <AddressRow label="Flagship ETF" address={STOCK_VAULT.address} />
+              <AddressRow label={CASH_TOKEN.symbol} address={CASH_TOKEN.address} />
+              <li>{STOCKS.length} listed stocks (see the Tokenized Stocks page)</li>
             </ul>
           ) : (
-            <p className="mb-3">Not deployed yet. Run <code>node scripts/deploy-base-sepolia.mjs</code>.</p>
+            <p className="mb-3">
+              Not deployed yet. Run <code>node scripts/deploy.mjs --network {NETWORK.key}</code>.
+            </p>
           )}
 
-          <h4 className="font-medium mb-1">Network Information</h4>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Network Name: {BASE_SEPOLIA.name}</li>
-            <li>RPC URL: https://sepolia.base.org</li>
-            <li>Chain ID: {BASE_SEPOLIA.chainId}</li>
-            <li>Symbol: ETH</li>
-            <li>Block Explorer: <a href={BASE_SEPOLIA.blockExplorer} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{BASE_SEPOLIA.blockExplorer}</a></li>
-            <li>Gas faucet: <a href={BASE_SEPOLIA.faucetUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Coinbase Developer Platform</a></li>
+          <h4 className="mb-1 font-medium">Network</h4>
+          <ul className="list-inside list-disc space-y-1">
+            <li>Network name: {NETWORK.name}</li>
+            <li>Chain ID: {NETWORK.chainId}</li>
+            <li>Gas token: ETH</li>
+            <li>
+              Block explorer:{' '}
+              <a href={NETWORK.blockExplorer} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                {NETWORK.blockExplorer}
+              </a>
+            </li>
+            {NETWORK.faucetUrl && (
+              <li>
+                Gas faucet:{' '}
+                <a href={NETWORK.faucetUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  Coinbase Developer Platform
+                </a>
+              </li>
+            )}
           </ul>
-        </div>
-      </div>
-
-      {/* Additional Settings Sections */}
-      <div className="space-y-6">
-        <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Account Preferences</h2>
-          <p className="text-muted-foreground">
-            Configure your account settings and preferences.
-          </p>
-        </div>
-        
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-medium mb-2">Notifications</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Configure how you receive notifications about your ETF portfolio.
-            </p>
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" defaultChecked className="rounded border-gray-300" />
-                <span className="text-sm">Email notifications</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" defaultChecked className="rounded border-gray-300" />
-                <span className="text-sm">Rebalancing alerts</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" className="rounded border-gray-300" />
-                <span className="text-sm">Performance reports</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-medium mb-2">Security</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Manage your security settings and wallet connections.
-            </p>
-            <div className="space-y-2">
-              <button className="text-sm text-primary hover:underline">
-                Change password
-              </button>
-              <br />
-              <button className="text-sm text-primary hover:underline">
-                Manage connected wallets
-              </button>
-              <br />
-              <button className="text-sm text-primary hover:underline">
-                Two-factor authentication
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* API & Developer Settings */}
-      <div className="space-y-6">
-        <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Developer Settings</h2>
-          <p className="text-muted-foreground">
-            Advanced settings for developers and API access.
-          </p>
-        </div>
-        
-        <div className="p-4 border rounded-lg">
-          <h3 className="font-medium mb-2">API Access</h3>
-          <p className="text-sm text-muted-foreground mb-3">
-            Manage your API keys and access tokens.
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-              <span className="text-sm font-mono">bae_1234567890abcdef</span>
-              <button className="text-sm text-red-600 hover:underline">Revoke</button>
-            </div>
-            <button className="text-sm text-primary hover:underline">
-              Generate new API key
-            </button>
-          </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -7,7 +7,7 @@ import ClientLayout from '@/components/ClientLayout';
 import { ToastProvider } from '@/components/ui/use-toast';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { Menu } from 'lucide-react';
-import { BASE_SEPOLIA } from '@/config/base-sepolia';
+import { NETWORK } from '@/config/network';
 import { SidebarProvider, useSidebar } from './SidebarProvider';
 
 interface RootLayoutContentProps {
@@ -58,10 +58,10 @@ function RootLayoutInner({ children }: RootLayoutContentProps) {
               {/* Network: Base only */}
               <div
                 className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
-                title={`${BASE_SEPOLIA.name} (chain ${BASE_SEPOLIA.chainId})`}
+                title={`${NETWORK.name} (chain ${NETWORK.chainId})`}
               >
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-600" aria-hidden="true" />
-                <span className="hidden sm:inline">{BASE_SEPOLIA.name}</span>
+                <span className="hidden sm:inline">{NETWORK.name}</span>
               </div>
 
               <WalletConnectButton />

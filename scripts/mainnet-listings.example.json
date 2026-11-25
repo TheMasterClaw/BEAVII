@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to scripts/mainnet-listings.json and fill in. Each stock needs a Chainlink-style USD price feed on Base (feed address + heartbeat in seconds, from the feed's documentation) and the fee tier of a USDC/<stock> Uniswap V3 pool with real liquidity (500, 3000 or 10000). scripts/deploy.mjs --network base --dry-run verifies every feed answers, prices within 5% of Coinbase NAV, and every pool exists with liquidity before anything is deployed. Symbols are Coinbase tokenized-stock symbols.",
+  "listings": [
+    { "symbol": "AAPLc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "MSFTc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "NVDAc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "GOOGLc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "AMZNc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "METAc", "feed": "", "heartbeat": 86400, "poolFee": 3000 },
+    { "symbol": "TSLAc", "feed": "", "heartbeat": 86400, "poolFee": 3000 }
+  ]
+}

@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { STOCKS, type TestStock } from '@/config/base-sepolia';
-import { ETF_FACTORY_ABI, ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, FEE_LIMITS, estimateManagerYearlyUsd } from '@/lib/etf';
+import { IS_TESTNET, NETWORK, STOCKS, type Stock as ListedStock } from '@/config/network';
+import { ETF_FACTORY_ABI, ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, FEE_LIMITS, estimateManagerYearlyUsd, getEtfFactory } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
 
-type Stock = TestStock & { priceUsd?: number | null };
+type Stock = ListedStock & { priceUsd?: number | null };
 interface Pick {
   stock: Stock;
   weightPct: string; // user-editable percent
@@ -38,6 +38,20 @@ export function CreateETFForm() {
   const [protocolFeeBps, setProtocolFeeBps] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canCreate, setCanCreate] = useState<boolean | null>(null);
+
+  // Launches may be limited to approved managers (ETFFactory.permissionless / approvedManagers)
+  useEffect(() => {
+    if (!account || !FACTORY_DEPLOYED) return setCanCreate(null);
+    let live = true;
+    getEtfFactory()
+      .canCreate(account)
+      .then((ok: boolean) => live && setCanCreate(ok))
+      .catch(() => live && setCanCreate(null));
+    return () => {
+      live = false;
+    };
+  }, [account]);
 
   useEffect(() => {
     fetch('/api/etfs', { cache: 'no-store' })
@@ -128,7 +142,7 @@ export function CreateETFForm() {
       <Card>
         <CardHeader>
           <CardTitle>ETF factory not deployed</CardTitle>
-          <CardDescription>Run `node scripts/deploy-base-sepolia.mjs` to deploy the Base Sepolia contracts.</CardDescription>
+          <CardDescription>Run `node scripts/deploy.mjs --network {NETWORK.key}` to deploy the {NETWORK.name} contracts.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -324,9 +338,14 @@ export function CreateETFForm() {
                 {error}
               </p>
             )}
+            {account && canCreate === false && (
+              <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+                ETF launches are currently limited to approved managers. This wallet is not approved yet.
+              </p>
+            )}
             {account ? (
-              <Button className="w-full" disabled={busy || problems.length > 0} onClick={submit}>
-                {busy ? 'Confirm in wallet…' : wrongChain ? 'Switch to Base Sepolia & launch' : 'Launch ETF'}
+              <Button className="w-full" disabled={busy || problems.length > 0 || canCreate === false} onClick={submit}>
+                {busy ? 'Confirm in wallet…' : wrongChain ? `Switch to ${NETWORK.name} & launch` : 'Launch ETF'}
               </Button>
             ) : (
               <Button className="w-full" onClick={() => connect().catch((e) => setError(txErrorMessage(e)))}>
@@ -334,7 +353,8 @@ export function CreateETFForm() {
               </Button>
             )}
             <p className="text-xs text-muted-foreground">
-              You become the manager. One transaction, roughly 0.8M gas on Base Sepolia. <Badge variant="outline">Testnet</Badge>
+              You become the manager. One transaction, roughly 0.8M gas on {NETWORK.name}.{' '}
+              {IS_TESTNET && <Badge variant="outline">Testnet</Badge>}
             </p>
           </CardContent>
         </Card>

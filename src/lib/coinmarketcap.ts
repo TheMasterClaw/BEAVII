@@ -20,7 +20,6 @@ export interface CmcQuote {
   lastUpdated: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toQuote(c: any): CmcQuote {
   const q = c.quote?.USD ?? {};
   return {
@@ -62,7 +61,6 @@ export async function getQuotes(symbols: string[], revalidate = 60): Promise<Rec
   const out: Record<string, CmcQuote> = {};
   for (const [sym, entries] of Object.entries(data ?? {})) {
     const list = (entries as unknown[]).filter(Boolean);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const best = list.sort((a: any, b: any) => (a.cmc_rank ?? 1e9) - (b.cmc_rank ?? 1e9))[0];
     if (best) out[sym] = toQuote(best);
   }
@@ -99,7 +97,6 @@ function issuerOf(name: string, address: string): BaseTokenizedStock['issuer'] {
 /** CMC ids in the Tokenized Stock category that have a Base contract. Rebuilt daily (~35 credits). */
 const getBaseListings = unstable_cache(
   async (): Promise<BaseListing[]> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coins: any[] = [];
     for (let start = 1; start < 10_000; start += 1000) {
       const page = await cmcFetch('/v1/cryptocurrency/category', { id: TOKENIZED_STOCK_CATEGORY, start: String(start), limit: '1000' }, 0);
@@ -115,7 +112,6 @@ const getBaseListings = unstable_cache(
     for (let i = 0; i < ids.length; i += 200) {
       const info = await cmcFetch('/v2/cryptocurrency/info', { id: ids.slice(i, i + 200).join(','), skip_invalid: 'true', aux: 'platform' }, 0);
       for (const [id, meta] of Object.entries(info ?? {})) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const base = ((meta as any).contract_address ?? []).find((x: any) => x.platform?.coin?.slug === 'base' || x.platform?.name === 'Base');
         if (base?.contract_address && !out.has(Number(id))) out.set(Number(id), base.contract_address.toLowerCase());
       }

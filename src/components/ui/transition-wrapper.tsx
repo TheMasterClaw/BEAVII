@@ -12,7 +12,7 @@ interface TransitionWrapperProps {
   delay?: number; // In milliseconds
   duration?: number; // In milliseconds
   show?: boolean;
-  as?: React.ElementType;
+  as?: React.ElementType<{ className?: string; children?: React.ReactNode }>;
 }
 
 /**

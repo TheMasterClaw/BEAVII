@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
+import { NETWORK } from '@/config/network';
 import { ETF_FACTORY_ADDRESS, FACTORY_DEPLOYED, getEtfFactory, listEtfs } from '@/lib/etf';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ deployed: true, factory: ETF_FACTORY_ADDRESS, protocolFeeBps: Number(protocolFeeBps), etfs });
   } catch (e) {
     console.error('GET /api/etfs failed', e);
-    return NextResponse.json({ error: 'Failed to read ETFs from Base Sepolia' }, { status: 502 });
+    return NextResponse.json({ error: `Failed to read ETFs from ${NETWORK.name}` }, { status: 502 });
   }
 }

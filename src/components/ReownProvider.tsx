@@ -4,7 +4,6 @@ import { ReactNode, useState } from 'react';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { baseSepolia } from '@reown/appkit/networks';
 import { REOWN_NETWORKS, REOWN_PROJECT_ID, wagmiAdapter, wagmiConfig } from '@/config/reown';
 
 const metadata = {
@@ -19,7 +18,7 @@ createAppKit({
   adapters: [wagmiAdapter],
   projectId: REOWN_PROJECT_ID,
   networks: REOWN_NETWORKS,
-  defaultNetwork: baseSepolia,
+  defaultNetwork: REOWN_NETWORKS[0],
   metadata,
   features: {
     analytics: true,

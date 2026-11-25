@@ -1,0 +1,9 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "explorer": "https://basescan.org",
+  "deployer": "",
+  "agentWallet": "",
+  "b20Factory": "",
+  "stocks": []
+}

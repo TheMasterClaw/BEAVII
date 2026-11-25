@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { CASH_TOKEN, findStock } from '@/config/base-sepolia';
+import { CASH_TOKEN, IS_TESTNET, findStock } from '@/config/network';
 import { fetchAllStockPrices } from '@/lib/stock-prices';
 import { getB20, getStockAgentSigner } from '@/lib/stock-vault';
 
@@ -14,9 +14,11 @@ const lastClaim = new Map<string, number>(); // per server instance; fine for a 
 /**
  * POST /api/stocks/faucet { address, stock?: "TSLAc" }
  * Mints 1,000 tUSDC (and optionally ~$250 of any of the 415 test stocks) on Base Sepolia.
- * The server key needs MINT_ROLE on the test tokens (the deployer has it).
+ * The server key needs MINT_ROLE on the test tokens (the deployer has it). Testnet only: on mainnet the
+ * route does not exist (404).
  */
 export async function POST(req: NextRequest) {
+  if (!IS_TESTNET) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (!CASH_TOKEN.address) return NextResponse.json({ error: 'tUSDC is not deployed yet' }, { status: 503 });
   const { address, stock } = (await req.json().catch(() => ({}))) as { address?: string; stock?: string };
   if (!address || !ethers.isAddress(address)) return NextResponse.json({ error: 'valid address required' }, { status: 400 });
@@ -46,6 +48,6 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     lastClaim.delete(key);
     console.error('faucet failed', e);
-    return NextResponse.json({ error: (e as Error).message ?? 'faucet failed' }, { status: 500 });
+    return NextResponse.json({ error: 'faucet failed' }, { status: 500 });
   }
 }

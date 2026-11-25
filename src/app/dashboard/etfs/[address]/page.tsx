@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { CASH_TOKEN, STOCKS, explorerUrl } from '@/config/base-sepolia';
+import { CASH_TOKEN, IS_TESTNET, NETWORK, STOCKS, explorerUrl, findStock } from '@/config/network';
 import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
 import { FEE_LIMITS, bpsToPct, type EtfDetail } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { minOutWithTolerance } from '@/lib/slippage';
 
 const usd = (n: number | null | undefined, max = 2) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: max });
@@ -75,14 +76,6 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
     return tx.hash;
   };
 
-  const syncPrices = () =>
-    run('Price sync', async () => {
-      const res = await fetch('/api/stocks/agent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'sync-prices' }) });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      return body.txHash ?? body.txHashes?.[0];
-    });
-
   const faucet = () =>
     run('Faucet', async () => {
       const res = await fetch('/api/stocks/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: account }) });
@@ -97,13 +90,19 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
       const amount = ethers.parseUnits(depositAmt, CASH_TOKEN.decimals);
       const cash = new ethers.Contract(CASH_TOKEN.address, B20_ABI, signer);
       if ((await cash.allowance(account, address)) < amount) await (await cash.approve(address, amount)).wait();
-      return send((v) => v.deposit(CASH_TOKEN.address, amount));
+      // Expected shares at the live NAV, less the entry fee, with a 1% tolerance for price moves and execution
+      const minShares = minOutWithTolerance(Number(depositAmt) / (etf?.navPerShare || 1), 18, etf?.fees.entryFeeBps ?? 0);
+      return send((v) => v.deposit(CASH_TOKEN.address, amount, minShares));
     });
 
   const redeem = () =>
     run('Redeem', async () => {
       const kind = inKind || Boolean(etf?.paused);
-      const hash = await send((v) => v.withdraw(ethers.parseEther(redeemAmt), kind ? ethers.ZeroAddress : CASH_TOKEN.address, 0));
+      // Cash: expect shares x NAV less the exit fee, with a 1% tolerance. In kind needs no price.
+      const minOut = kind
+        ? BigInt(0)
+        : minOutWithTolerance(Number(redeemAmt) * (etf?.navPerShare ?? 0), CASH_TOKEN.decimals, etf?.fees.exitFeeBps ?? 0);
+      const hash = await send((v) => v.withdraw(ethers.parseEther(redeemAmt), kind ? ethers.ZeroAddress : CASH_TOKEN.address, minOut));
       setRedeemAmt('');
       return hash;
     });
@@ -187,7 +186,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
           value={`${bpsToPct(etf.fees.managementFeeBps)}/yr`}
           sub={`entry ${bpsToPct(etf.fees.entryFeeBps)} · exit ${bpsToPct(etf.fees.exitFeeBps)}`}
         />
-        <Stat label="Your position" value={me ? usd(me.valueUsd) : '—'} sub={me ? `${qty(me.shares)} shares · ${qty(me.cash, 2)} tUSDC` : 'Connect a wallet'} />
+        <Stat label="Your position" value={me ? usd(me.valueUsd) : '—'} sub={me ? `${qty(me.shares)} shares · ${qty(me.cash, 2)} ${CASH_TOKEN.symbol}` : 'Connect a wallet'} />
       </div>
 
       {etf.pendingFees && (
@@ -197,33 +196,43 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
         </div>
       )}
 
-      {me?.isManager && <ManagerPanel etf={etf} busy={busy} run={run} send={send} onSyncPrices={syncPrices} />}
+      {etf.pendingBasket && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          Basket change scheduled for {new Date(etf.pendingBasket.eta * 1000).toLocaleString()}:{' '}
+          {etf.pendingBasket.symbols.map((s, i) => `${s} ${bpsToPct(etf.pendingBasket!.weightsBps[i])}`).join(', ')}. You can redeem
+          before then.
+        </div>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {me?.isManager && <ManagerPanel etf={etf} busy={busy} run={run} send={send} />}
+
+      <div className={`grid gap-4 ${IS_TESTNET ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+        {IS_TESTNET && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base"><Coins className="h-4 w-4" /> Test funds</CardTitle>
-            <CardDescription>Gas needs Base Sepolia ETH. Test cash is free.</CardDescription>
+            <CardDescription>Gas needs {NETWORK.name} ETH. Test cash is free.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" variant="outline" disabled={!canTx} onClick={faucet}>
-              {busy === 'Faucet' ? 'Minting…' : 'Get 1,000 tUSDC'}
+              {busy === 'Faucet' ? 'Minting…' : `Get 1,000 ${CASH_TOKEN.symbol}`}
             </Button>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base"><ArrowDownToLine className="h-4 w-4" /> Buy {etf.symbol}</CardTitle>
             <CardDescription>
-              Pay tUSDC; the ETF buys each stock at NAV by weight.
+              Pay {CASH_TOKEN.symbol}; the ETF buys each stock by weight, within {bpsToPct(etf.maxSlippageBps)} of NAV.
               {etf.fees.entryFeeBps > 0 && ` ${bpsToPct(etf.fees.entryFeeBps)} entry fee.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex gap-2">
-              <Input inputMode="decimal" aria-label="tUSDC amount" value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} />
-              <span className="self-center text-sm text-muted-foreground">tUSDC</span>
+              <Input inputMode="decimal" aria-label={`${CASH_TOKEN.symbol} amount`} value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} />
+              <span className="self-center text-sm text-muted-foreground">{CASH_TOKEN.symbol}</span>
             </div>
             <Button className="w-full" disabled={!canTx || etf.paused || !(Number(depositAmt) > 0)} onClick={deposit}>
               {busy === 'Buy' ? 'Confirm in wallet…' : 'Approve & buy'}
@@ -235,7 +244,7 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base"><ArrowUpFromLine className="h-4 w-4" /> Redeem</CardTitle>
             <CardDescription>
-              Get tUSDC at NAV, or the stocks themselves (always available, even when paused).
+              Get {CASH_TOKEN.symbol} at NAV, or the stocks themselves (always available, even when paused or prices are stale).
               {etf.fees.exitFeeBps > 0 && ` ${bpsToPct(etf.fees.exitFeeBps)} exit fee.`}
             </CardDescription>
           </CardHeader>
@@ -264,11 +273,9 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
             <CardDescription>
               Prices are {stalest ? `${Math.round(stalest / 60)} min` : '—'} old · last rebalance{' '}
               {etf.lastRebalance ? new Date(etf.lastRebalance * 1000).toLocaleString() : 'never'}
+              {etf.cashUsd > 0 && ` · ${usd(etf.cashUsd)} uninvested cash`}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" disabled={!!busy} onClick={syncPrices}>
-            {busy === 'Price sync' ? 'Syncing…' : 'Sync prices'}
-          </Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -307,8 +314,10 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Testnet only. Test tokens have no value and are not offers of any security. Managers are community members, not
-        BEAVII. The protocol keeps {bpsToPct(etf.protocolFeeBps, 0)} of fees.
+        {IS_TESTNET
+          ? 'Testnet only. Test tokens have no value and are not offers of any security. '
+          : 'ETF shares carry market, liquidity and smart-contract risk, and are not offers of any security. '}
+        Managers are community members, not BEAVII. The protocol keeps {bpsToPct(etf.protocolFeeBps, 0)} of fees.
       </p>
     </div>
   );
@@ -321,11 +330,11 @@ interface ManagerPanelProps {
   busy: string | null;
   run: (label: string, fn: () => Promise<string | undefined>) => Promise<void>;
   send: (fn: (v: ethers.Contract) => Promise<ethers.ContractTransactionResponse>) => Promise<string>;
-  onSyncPrices: () => void;
 }
 
-function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps) {
+function ManagerPanel({ etf, busy, run, send }: ManagerPanelProps) {
   const [weights, setWeights] = useState<Record<string, string>>({});
+  const [added, setAdded] = useState<string[]>([]);
   const [newStock, setNewStock] = useState('');
   const [mgmt, setMgmt] = useState('');
   const [entry, setEntry] = useState('');
@@ -333,6 +342,7 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
 
   useEffect(() => {
     setWeights(Object.fromEntries(etf.holdings.map((h) => [h.token, (h.targetWeightBps / 100).toFixed(2)])));
+    setAdded([]);
     setMgmt((etf.fees.managementFeeBps / 100).toFixed(2));
     setEntry((etf.fees.entryFeeBps / 100).toFixed(2));
     setExit((etf.fees.exitFeeBps / 100).toFixed(2));
@@ -341,15 +351,24 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
   }, [etf.address, JSON.stringify(etf.holdings.map((h) => [h.token, h.targetWeightBps])), JSON.stringify(etf.fees)]);
 
   const bps = (s: string) => Math.round(Number(s || 0) * 100);
-  const totalBps = Object.values(weights).reduce((a, w) => a + bps(w), 0);
-  const changed = etf.holdings.some((h) => bps(weights[h.token] ?? '0') !== h.targetWeightBps);
+  const rows = [
+    ...etf.holdings.map((h) => ({ token: h.token, symbol: h.symbol, actualBps: h.actualWeightBps, targetBps: h.targetWeightBps })),
+    ...added.map((t) => ({ token: t, symbol: findStock(t)?.testSymbol ?? t, actualBps: 0, targetBps: 0 })),
+  ];
+  const totalBps = rows.reduce((a, r) => a + bps(weights[r.token] ?? '0'), 0);
+  const changed = rows.some((r) => bps(weights[r.token] ?? '0') !== r.targetBps);
+  const nextBasket = rows.filter((r) => bps(weights[r.token] ?? '0') > 0);
   const drift = Math.max(0, ...etf.holdings.map((h) => Math.abs(h.actualWeightBps - h.targetWeightBps)));
-  const held = new Set(etf.holdings.map((h) => h.token.toLowerCase()));
+  const held = new Set(rows.map((r) => r.token.toLowerCase()));
+  const now = Date.now() / 1000;
+  const rebalanceLocked = etf.nextRebalanceAt > now;
+  const immediate = etf.totalShares === 0;
+  const canApplyBasket = Boolean(etf.pendingBasket && now >= etf.pendingBasket.eta);
   const candidate = useMemo(() => {
     const q = newStock.trim().toLowerCase();
     return q ? STOCKS.find((s) => !held.has(s.address.toLowerCase()) && (s.symbol.toLowerCase() === q || s.testSymbol.toLowerCase() === q)) : undefined;
      
-  }, [newStock, etf.holdings]);
+  }, [newStock, etf.holdings, added]);
 
   const next = { managementFeeBps: bps(mgmt), entryFeeBps: bps(entry), exitFeeBps: bps(exit) };
   const feeTooHigh =
@@ -383,12 +402,12 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-3">
-            <h3 className="font-semibold">Weights &amp; rebalancing</h3>
+            <h3 className="font-semibold">Basket &amp; rebalancing</h3>
             <div className="divide-y rounded-md border">
-              {etf.holdings.map((h) => (
+              {rows.map((h) => (
                 <div key={h.token} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <span className="flex-1 font-medium">{h.symbol}</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">now {bpsToPct(h.actualWeightBps)}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">now {bpsToPct(h.actualBps)}</span>
                   <Input
                     inputMode="decimal"
                     className="h-8 w-20 text-right tabular-nums"
@@ -408,30 +427,63 @@ function ManagerPanel({ etf, busy, run, send, onSyncPrices }: ManagerPanelProps)
               <Input placeholder="Add stock by ticker, e.g. AMDc" aria-label="Add stock ticker" value={newStock} onChange={(e) => setNewStock(e.target.value)} />
               <Button
                 variant="outline"
-                disabled={!candidate || !!busy || etf.holdings.length >= FEE_LIMITS.maxAssets}
-                onClick={() => run(`Add ${candidate!.testSymbol}`, async () => { const h = await send((v) => v.addAsset(candidate!.address, 0)); setNewStock(''); return h; })}
+                disabled={!candidate || !!busy || rows.length >= FEE_LIMITS.maxAssets}
+                onClick={() => {
+                  setAdded([...added, candidate!.address]);
+                  setWeights({ ...weights, [candidate!.address]: '0' });
+                  setNewStock('');
+                }}
               >
                 Add
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={!!busy || !changed || totalBps !== 10_000}
+                disabled={!!busy || !changed || totalBps !== 10_000 || nextBasket.length === 0}
                 onClick={() =>
-                  run('Save weights', () => {
-                    const rows = etf.holdings.map((h) => [h.token, bps(weights[h.token] ?? '0')] as const);
-                    return send((v) => v.setWeights(rows.map((r) => r[0]), rows.map((r) => r[1])));
-                  })
+                  run(immediate ? 'Save basket' : 'Schedule basket change', () =>
+                    send((v) => v.queueBasket(nextBasket.map((r) => r.token), nextBasket.map((r) => bps(weights[r.token]))))
+                  )
                 }
               >
-                {busy === 'Save weights' ? 'Saving…' : 'Save weights'}
+                {busy === 'Save basket' || busy === 'Schedule basket change'
+                  ? 'Confirm in wallet…'
+                  : immediate
+                    ? 'Save basket'
+                    : `Schedule change (${FEE_LIMITS.basketTimelockHours}h notice)`}
               </Button>
-              <Button variant="outline" disabled={!!busy || etf.paused} onClick={() => run('Rebalance', () => send((v) => v.rebalance()))}>
-                {busy === 'Rebalance' ? 'Rebalancing…' : `Rebalance (drift ${bpsToPct(drift)})`}
+              <Button
+                variant="outline"
+                disabled={!!busy || etf.paused || rebalanceLocked}
+                onClick={() => run('Rebalance', () => send((v) => v.rebalance()))}
+              >
+                {busy === 'Rebalance'
+                  ? 'Rebalancing…'
+                  : rebalanceLocked
+                    ? `Rebalance after ${new Date(etf.nextRebalanceAt * 1000).toLocaleTimeString()}`
+                    : `Rebalance (drift ${bpsToPct(drift)})`}
               </Button>
-              <Button variant="ghost" disabled={!!busy} onClick={onSyncPrices}>Sync prices first</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Rebalancing trades at NAV, so it doesn&apos;t change the fund&apos;s value. Prices must be under 7 days old.</p>
+            {etf.pendingBasket && (
+              <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                <span className="min-w-0 truncate">
+                  Queued: {etf.pendingBasket.symbols.map((s, i) => `${s} ${bpsToPct(etf.pendingBasket!.weightsBps[i])}`).join(', ')}
+                </span>
+                <div className="flex shrink-0 gap-2">
+                  <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => run('Cancel basket change', () => send((v) => v.cancelPendingBasket()))}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={!!busy || !canApplyBasket} onClick={() => run('Apply basket', () => send((v) => v.applyPendingBasket()))}>
+                    {canApplyBasket ? 'Apply' : `Ready ${new Date(etf.pendingBasket.eta * 1000).toLocaleString()}`}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Set a stock to 0% to drop it; it is sold on the next rebalance. Once the ETF has holders, basket changes wait{' '}
+              {FEE_LIMITS.basketTimelockHours} hours so they can exit first. Rebalances trade through the venue within{' '}
+              {bpsToPct(etf.maxSlippageBps)} of NAV, at most every {FEE_LIMITS.rebalanceIntervalHours} hours, and need fresh prices.
+            </p>
           </div>
 
           <div className="space-y-3">

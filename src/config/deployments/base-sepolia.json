@@ -7042,60 +7042,25 @@
     "decimals": 6,
     "address": "0xB200000000000000000000560F79185CAb141a94"
   },
-  "exchange": {
-    "address": "0xA8c0Dcadb14778BAF48AB971371C5406f9483521",
-    "deployTx": "0x9c8e95e3b432f9937cfb17e1d34f8db5aff0029c86c0cc62b55f2a1c5255c2e6"
-  },
-  "factory": {
-    "implementation": "0x30066A1de271FD0E19f8097B1F0f20f01BBA0c1C",
-    "address": "0x1fb1A31DdcAD12BC18D18A175B39CA2C2168ECfd",
-    "deployTx": "0x942b767355622f0d08e3f5f57b842a4a01faceb03f5d83a6da4a2cf07ed7429a",
-    "treasury": "0x732EfdddFED16aAF18280F38DaeB2393a6F0ec55",
-    "protocolFeeBps": 2000
-  },
   "stocksSyncedAt": "2026-11-25T10:52:46.465Z",
-  "vault": {
-    "address": "0x1f5DD8aa681F112Fa6BdF2584Ae618FE678E62aB",
-    "name": "BEAVII Magnificent 7",
-    "symbol": "bMAG7",
-    "deployTx": "0x97d9ad17ccfab439b99a7312e8ebc3d83dceee860842fc5362d4c3b47b421d3c"
-  },
-  "basket": [
-    {
-      "symbol": "AAPLc",
-      "address": "0xb20000000000000000000030289fe1E8958D3C14",
-      "weight": 1432
+  "legacy": {
+    "note": "v1 contracts (pre mainnet-readiness), ABI-incompatible with the current app",
+    "exchange": {
+      "address": "0xA8c0Dcadb14778BAF48AB971371C5406f9483521",
+      "deployTx": "0x9c8e95e3b432f9937cfb17e1d34f8db5aff0029c86c0cc62b55f2a1c5255c2e6"
     },
-    {
-      "symbol": "MSFTc",
-      "address": "0xb200000000000000000000C933cBb6138dA56a63",
-      "weight": 1428
+    "factory": {
+      "implementation": "0x30066A1de271FD0E19f8097B1F0f20f01BBA0c1C",
+      "address": "0x1fb1A31DdcAD12BC18D18A175B39CA2C2168ECfd",
+      "deployTx": "0x942b767355622f0d08e3f5f57b842a4a01faceb03f5d83a6da4a2cf07ed7429a",
+      "treasury": "0x732EfdddFED16aAF18280F38DaeB2393a6F0ec55",
+      "protocolFeeBps": 2000
     },
-    {
-      "symbol": "NVDAc",
-      "address": "0xB2000000000000000000006D1F943a990b8842D7",
-      "weight": 1428
-    },
-    {
-      "symbol": "GOOGLc",
-      "address": "0xB2000000000000000000002088AE9D25B815441E",
-      "weight": 1428
-    },
-    {
-      "symbol": "AMZNc",
-      "address": "0xb2000000000000000000006F34D2D1679b98e4C0",
-      "weight": 1428
-    },
-    {
-      "symbol": "METAc",
-      "address": "0xB200000000000000000000c1FEF47DCAF86e1D01",
-      "weight": 1428
-    },
-    {
-      "symbol": "TSLAc",
-      "address": "0xB200000000000000000000D755ffba87BFDF82Ab",
-      "weight": 1428
+    "vault": {
+      "address": "0x1f5DD8aa681F112Fa6BdF2584Ae618FE678E62aB",
+      "name": "BEAVII Magnificent 7",
+      "symbol": "bMAG7",
+      "deployTx": "0x97d9ad17ccfab439b99a7312e8ebc3d83dceee860842fc5362d4c3b47b421d3c"
     }
-  ],
-  "deployedAt": "2026-11-25T10:56:51.999Z"
+  }
 }

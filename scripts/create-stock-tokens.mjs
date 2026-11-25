@@ -3,11 +3,11 @@
 //
 // Roles granted at creation (via factory initCalls, so no extra txs):
 //   - deployer: MINT_ROLE + BURN_ROLE (testnet faucet)
-//   - StockExchange (deployment.exchange.address): MINT_ROLE + BURN_ROLE (issues/retires stock for every ETF)
+//   - StockExchange (deployment.venue.address, the testnet venue): MINT_ROLE + BURN_ROLE (issues/retires stock for every ETF)
 //
 // Re-runnable: token addresses are deterministic (getB20Address(variant, deployer, salt)), existing tokens are
 // skipped, and missing exchange roles on existing tokens are granted. Only `stocks[]` in the deployment JSON is
-// written; the file is re-read before each save so keys written by scripts/deploy-base-sepolia.mjs are preserved.
+// written; the file is re-read before each save so keys written by scripts/deploy.mjs --network base-sepolia are preserved.
 //
 // Usage: node scripts/create-stock-tokens.mjs [--no-exchange] [--limit N]
 import fs from 'node:fs';
@@ -32,12 +32,12 @@ for (const line of fs.existsSync(path.join(root, '.env.local')) ? fs.readFileSyn
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
-if (!process.env.DEPLOYER_PRIVATE_KEY) throw new Error('DEPLOYER_PRIVATE_KEY missing (run scripts/deploy-base-sepolia.mjs once to generate it)');
+if (!process.env.DEPLOYER_PRIVATE_KEY) throw new Error('DEPLOYER_PRIVATE_KEY missing (run `node scripts/deploy.mjs --network base-sepolia` once to generate it)');
 
 const readState = () => (fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : {});
-const exchange = readState().exchange?.address;
+const exchange = readState().venue?.address;
 if (!exchange && !NO_EXCHANGE) {
-  console.error('deployment.exchange.address is not set yet. Deploy the StockExchange first (scripts/deploy-base-sepolia.mjs),');
+  console.error('deployment.venue.address is not set yet. Deploy the testnet StockExchange first (scripts/deploy.mjs --network base-sepolia),');
   console.error('or pass --no-exchange to create tokens now and grant exchange roles later.');
   process.exit(1);
 }

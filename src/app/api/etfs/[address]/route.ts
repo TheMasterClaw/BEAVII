@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { isFactoryEtf, readEtfDetail } from '@/lib/etf';
+import { NETWORK } from '@/config/network';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
     return NextResponse.json(await readEtfDetail(ethers.getAddress(address), account));
   } catch (e) {
     console.error('GET /api/etfs/[address] failed', e);
-    return NextResponse.json({ error: 'Failed to read ETF from Base Sepolia' }, { status: 502 });
+    return NextResponse.json({ error: `Failed to read ETF from ${NETWORK.name}` }, { status: 502 });
   }
 }

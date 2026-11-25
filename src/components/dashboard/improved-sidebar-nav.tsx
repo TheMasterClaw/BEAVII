@@ -4,7 +4,7 @@ import { useViewTransitions } from './use-view-transitions';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TransitionWrapper } from '@/components/ui/transition-wrapper';
-import { BASE_SEPOLIA } from '@/config/base-sepolia';
+import { NETWORK } from '@/config/network';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -20,7 +20,7 @@ export interface ImprovedSidebarNavProps {
   isCollapsed?: boolean;
 }
 
-// Define default navigation items with proper mock icons
+// Navigation items
 const defaultItems = [
   {
     title: 'Overview',
@@ -36,12 +36,7 @@ const defaultItems = [
     title: 'Tokenized Stocks',
     href: '/dashboard/stocks',
     icon: '📈',
-    description: 'Stock-basket ETF on Base Sepolia'
-  },
-  {
-    title: 'Agent Monitoring',
-    href: '/dashboard/agent',
-    icon: '🤖'
+    description: `Stock-basket ETF on ${NETWORK.name}`
   },
   {
     title: 'Launch ETF',
@@ -54,11 +49,6 @@ const defaultItems = [
     href: '/dashboard/etfs',
     icon: '💼',
     description: 'Browse community ETFs and the ones you manage'
-  },
-  {
-    title: 'Verify Account',
-    href: '/verify',
-    icon: '✅'
   },
   {
     title: 'Transactions',
@@ -124,7 +114,7 @@ export function ImprovedSidebarNav({ items = defaultItems, className, isCollapse
             <h3 className="text-xs font-medium text-muted-foreground">Network</h3>
             <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
               <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-              <span className="text-sm">{BASE_SEPOLIA.name}</span>
+              <span className="text-sm">{NETWORK.name}</span>
             </div>
           </div>
         </div>

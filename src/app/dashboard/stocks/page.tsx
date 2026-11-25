@@ -2,20 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
-import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine, Activity } from 'lucide-react';
+import { ExternalLink, RefreshCw, Wallet, Droplets, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  BASE_SEPOLIA,
-  BASE_SEPOLIA_CHAIN_ID,
-  CASH_TOKEN,
-  STOCK_VAULT,
-  explorerUrl,
-} from '@/config/base-sepolia';
+import { NETWORK, CHAIN_ID, CASH_TOKEN, IS_TESTNET, STOCK_VAULT, explorerUrl } from '@/config/network';
 import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
-import { useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { minOutWithTolerance } from '@/lib/slippage';
 
 interface StockRow {
   symbol: string;
@@ -40,12 +35,13 @@ interface StockRow {
 
 interface StocksResponse {
   deployed: boolean;
-  hasExchange: boolean;
+  hasOracle: boolean;
+  faucet: boolean;
   tokensCreated: number;
   cashToken: { symbol: string; address: string; decimals: number };
   hint?: string;
   error?: string;
-  network: { faucetUrl: string };
+  network: { faucetUrl: string; testnet: boolean; name: string };
   vault: null | {
     address: string;
     name: string;
@@ -54,6 +50,8 @@ interface StocksResponse {
     navPerShare: number;
     totalShares: string;
     lastRebalance: number;
+    entryFeeBps: number;
+    exitFeeBps: number;
   };
   stocks: StockRow[];
   user: null | { cash: string; shares?: string; sharesValueUsd?: number };
@@ -67,7 +65,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export default function TokenizedStocksPage() {
   const [data, setData] = useState<StocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const { account, wrongChain, connect: openLogin, ensureBaseSepolia, getSigner } = useInjectedWallet();
+  const { account, wrongChain, connect: openLogin, ensureNetwork, getSigner } = useInjectedWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string; tx?: string } | null>(null);
   const [depositAmt, setDepositAmt] = useState('100');
@@ -110,8 +108,7 @@ export default function TokenizedStocksPage() {
       setStatus({ kind: 'ok', msg: `${label} confirmed`, tx });
       await load();
     } catch (e) {
-      const err = e as { shortMessage?: string; reason?: string; message?: string };
-      setStatus({ kind: 'err', msg: `${label} failed: ${err.reason ?? err.shortMessage ?? err.message}` });
+      setStatus({ kind: 'err', msg: `${label} failed: ${txErrorMessage(e)}` });
     } finally {
       setBusy(null);
     }
@@ -129,18 +126,6 @@ export default function TokenizedStocksPage() {
       return body.txHashes?.[0];
     });
 
-  const syncPrices = () =>
-    run('NAV sync', async () => {
-      const res = await fetch('/api/stocks/agent', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'sync-prices' }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      return body.txHash;
-    });
-
   const deposit = () =>
     run('Deposit', async () => {
       const signer = await getSigner();
@@ -149,7 +134,10 @@ export default function TokenizedStocksPage() {
       const allowance: bigint = await cash.allowance(account, STOCK_VAULT.address);
       if (allowance < amount) await (await cash.approve(STOCK_VAULT.address, amount)).wait();
       const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
-      const tx = await vault.deposit(CASH_TOKEN.address, amount);
+      // Expected shares at the live NAV, less the entry fee, with a 1% tolerance for price moves and execution
+      const nav = data?.vault?.navPerShare || 1;
+      const minShares = minOutWithTolerance(Number(depositAmt) / nav, 18, data?.vault?.entryFeeBps ?? 0);
+      const tx = await vault.deposit(CASH_TOKEN.address, amount, minShares);
       await tx.wait();
       return tx.hash;
     });
@@ -159,7 +147,11 @@ export default function TokenizedStocksPage() {
       const signer = await getSigner();
       const vault = new ethers.Contract(STOCK_VAULT.address, STOCK_VAULT_ABI, signer);
       const shares = ethers.parseEther(redeemAmt);
-      const tx = await vault.withdraw(shares, redeemInKind ? ethers.ZeroAddress : CASH_TOKEN.address, 0);
+      // Cash redemptions: expect shares x NAV less the exit fee, with a 1% tolerance. In kind needs no price.
+      const minOut = redeemInKind
+        ? BigInt(0)
+        : minOutWithTolerance(Number(redeemAmt) * (data?.vault?.navPerShare ?? 0), CASH_TOKEN.decimals, data?.vault?.exitFeeBps ?? 0);
+      const tx = await vault.withdraw(shares, redeemInKind ? ethers.ZeroAddress : CASH_TOKEN.address, minOut);
       await tx.wait();
       setRedeemAmt('');
       return tx.hash;
@@ -181,7 +173,7 @@ export default function TokenizedStocksPage() {
   useEffect(() => setPage(0), [query, filter]);
   const stalest = Math.max(0, ...basket.map((s) => s.onchainPriceAgeSec ?? 0));
   const canTransact = Boolean(account && data?.deployed && !busy);
-  const canFaucet = Boolean(account && data?.cashToken?.address && !busy);
+  const canFaucet = Boolean(account && data?.faucet && !busy);
 
   return (
     <div className="space-y-6">
@@ -189,11 +181,12 @@ export default function TokenizedStocksPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight">Tokenized Stocks</h1>
-            <Badge variant="outline">Base Sepolia · {BASE_SEPOLIA_CHAIN_ID}</Badge>
+            <Badge variant="outline">{NETWORK.name} · {CHAIN_ID}</Badge>
           </div>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            A stock-basket ETF built on Base B-20 asset tokens. Test tokens mirror Coinbase tokenized stocks on Base and
-            are priced at their live NAV from the Tokenized Stocks API.
+            {IS_TESTNET
+              ? 'A stock-basket ETF built on Base B-20 asset tokens. Test tokens mirror Coinbase tokenized stocks on Base and are priced at their live NAV.'
+              : 'A stock-basket ETF holding Coinbase tokenized stocks on Base, priced by the protocol price oracle.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -210,8 +203,8 @@ export default function TokenizedStocksPage() {
             </Button>
           )}
           {wrongChain && (
-            <Button size="sm" onClick={() => ensureBaseSepolia().catch((e) => setStatus({ kind: 'err', msg: (e as Error).message }))}>
-              Switch to Base Sepolia
+            <Button size="sm" onClick={() => ensureNetwork().catch((e) => setStatus({ kind: 'err', msg: (e as Error).message }))}>
+              Switch to {NETWORK.name}
             </Button>
           )}
         </div>
@@ -246,12 +239,13 @@ export default function TokenizedStocksPage() {
           <Stat label="Vault TVL" value={usd(data.vault.totalValueUsd)} />
           <Stat label={`NAV per ${data.vault.symbol}`} value={usd(data.vault.navPerShare, 4)} />
           <Stat label="Your shares" value={data.user?.shares ? qty(data.user.shares) : '—'} sub={data.user ? usd(data.user.sharesValueUsd ?? 0) : 'Connect a wallet'} />
-          <Stat label="Your tUSDC" value={data.user ? qty(data.user.cash, 2) : '—'} />
+          <Stat label={`Your ${CASH_TOKEN.symbol}`} value={data.user ? qty(data.user.cash, 2) : '—'} />
         </div>
       )}
 
       {(data?.deployed || data?.cashToken?.address) && (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className={`grid gap-4 ${data.faucet ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+          {data.faucet && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base"><Droplets className="h-4 w-4" /> Testnet funds</CardTitle>
@@ -268,16 +262,19 @@ export default function TokenizedStocksPage() {
               <p className="text-xs text-muted-foreground">Or use “+$250” on any stock below to get tUSDC plus that stock.</p>
             </CardContent>
           </Card>
+          )}
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base"><ArrowDownToLine className="h-4 w-4" /> Buy the basket</CardTitle>
-              <CardDescription>Deposit tUSDC. The vault issues each stock at NAV by target weight.</CardDescription>
+              <CardDescription>
+                Deposit {CASH_TOKEN.symbol}. The vault buys each stock by target weight, within the protocol slippage cap of NAV.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex gap-2">
-                <Input inputMode="decimal" value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} aria-label="tUSDC amount" />
-                <span className="self-center text-sm text-muted-foreground">tUSDC</span>
+                <Input inputMode="decimal" value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} aria-label={`${CASH_TOKEN.symbol} amount`} />
+                <span className="self-center text-sm text-muted-foreground">{CASH_TOKEN.symbol}</span>
               </div>
               <Button className="w-full" disabled={!canTransact || !(Number(depositAmt) > 0)} onClick={deposit}>
                 {busy === 'Deposit' ? 'Confirm in wallet…' : 'Approve & deposit'}
@@ -288,7 +285,7 @@ export default function TokenizedStocksPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base"><ArrowUpFromLine className="h-4 w-4" /> Redeem</CardTitle>
-              <CardDescription>Burn shares for tUSDC at NAV, or take the stocks in kind.</CardDescription>
+              <CardDescription>Burn shares for {CASH_TOKEN.symbol} at NAV, or take the stocks in kind.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex gap-2">
@@ -318,9 +315,6 @@ export default function TokenizedStocksPage() {
                 {' · '}onchain prices are {stalest ? `${Math.round(stalest / 60)} min` : '—'} old
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={syncPrices} disabled={!!busy}>
-              <Activity className="h-4 w-4 mr-1" /> {busy === 'NAV sync' ? 'Syncing…' : 'Sync NAV'}
-            </Button>
           </CardHeader>
           <CardContent>
             <StockTable rows={basket} showWeights />
@@ -334,9 +328,11 @@ export default function TokenizedStocksPage() {
             <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between">
               <CardTitle className="text-base">All tokenized stocks on Base ({data.stocks.length})</CardTitle>
               <CardDescription>
-                {data.tokensCreated
-                  ? `${data.tokensCreated} test mirrors on Base Sepolia`
-                  : 'Test mirrors not created yet. Showing the Base mainnet catalog with live prices.'}
+                {IS_TESTNET
+                  ? data.tokensCreated
+                    ? `${data.tokensCreated} test mirrors on ${NETWORK.name}`
+                    : 'Test mirrors not created yet. Showing the Base mainnet catalog with live prices.'
+                  : `${data.tokensCreated} listed for ETFs`}
               </CardDescription>
             </div>
             <div className="flex flex-col gap-2 md:flex-row">
@@ -366,8 +362,10 @@ export default function TokenizedStocksPage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Testnet only. Test tokens have no value and are not offers of any security. Mainnet Coinbase tokenized stocks are
-        available only to eligible persons outside the United States.
+        {IS_TESTNET
+          ? 'Testnet only. Test tokens have no value and are not offers of any security. '
+          : 'Tokenized stocks and ETF shares carry market, liquidity and smart-contract risk, and are not offers of any security. '}
+        Coinbase tokenized stocks are available only to eligible persons outside the United States.
       </p>
     </div>
   );
@@ -432,7 +430,7 @@ function StockTable({ rows, showWeights, onDrip }: { rows: StockRow[]; showWeigh
                     +$250
                   </Button>
                 )}
-                {s.address && (
+                {IS_TESTNET && s.address && (
                   <a className="inline-flex items-center gap-1 underline" href={explorerUrl(s.address, 'token')} target="_blank" rel="noreferrer">
                     testnet <ExternalLink className="h-3 w-3" />
                   </a>

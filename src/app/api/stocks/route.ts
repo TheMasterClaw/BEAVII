@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { BASE_SEPOLIA, CASH_TOKEN, DEPLOYMENT, EXCHANGE_ADDRESS, HAS_EXCHANGE, IS_DEPLOYED, STOCKS, STOCK_VAULT } from '@/config/base-sepolia';
+import { NETWORK, CASH_TOKEN, DEPLOYMENT, IS_TESTNET, ORACLE_ADDRESS, HAS_ORACLE, IS_DEPLOYED, STOCKS, STOCK_VAULT, VENUE_ADDRESS } from '@/config/network';
 import { fetchAllStockPrices } from '@/lib/stock-prices';
 import { getBaseTokenizedStocks } from '@/lib/coinmarketcap';
-import { b20Iface, exchangeIface, getStockVault, multicall } from '@/lib/stock-vault';
+import { b20Iface, oracleIface, getStockVault, multicall } from '@/lib/stock-vault';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +12,9 @@ type Holding = { token: string; targetWeight: bigint; balance: bigint; valueUsd:
 
 /**
  * GET /api/stocks[?address=0x..]
- * Every Coinbase tokenized stock on Base and its Base Sepolia test mirror:
+ * Every Coinbase tokenized stock on Base (and, on testnet, its Base Sepolia test mirror):
  * - livePrice: Coinbase NAV where published, else the underlying's market price x multiplier
- * - onchainPrice / listed: what the shared StockExchange currently uses
+ * - onchainPrice / listed: what the shared PriceOracle currently uses
  * - basket fields for the flagship vault, and wallet balances when ?address is given
  */
 export async function GET(req: NextRequest) {
@@ -30,10 +30,12 @@ export async function GET(req: NextRequest) {
   ]);
   const cmcByAddress = new Map((cmc ?? []).map((t) => [t.baseAddress, t]));
   const base = {
-    network: { chainId: BASE_SEPOLIA.chainId, name: BASE_SEPOLIA.name, explorer: BASE_SEPOLIA.blockExplorer, faucetUrl: BASE_SEPOLIA.faucetUrl },
+    network: { key: NETWORK.key, chainId: NETWORK.chainId, name: NETWORK.name, explorer: NETWORK.blockExplorer, faucetUrl: NETWORK.faucetUrl, testnet: IS_TESTNET },
     deployed: IS_DEPLOYED,
-    hasExchange: HAS_EXCHANGE,
-    exchange: EXCHANGE_ADDRESS || null,
+    hasOracle: HAS_ORACLE,
+    oracle: ORACLE_ADDRESS || null,
+    venue: VENUE_ADDRESS || null,
+    faucet: IS_TESTNET && Boolean(CASH_TOKEN.address),
     factory: DEPLOYMENT.factory?.address ?? null,
     cashToken: CASH_TOKEN,
     agentWallet: DEPLOYMENT.agentWallet,
@@ -45,7 +47,7 @@ export async function GET(req: NextRequest) {
     ? STOCKS
     : (live?.records ?? []).map((r) => ({
         symbol: r.symbol,
-        testSymbol: `t${r.symbol}`,
+        testSymbol: IS_TESTNET ? `t${r.symbol}` : r.symbol,
         name: r.name,
         address: '',
         mainnetAddress: r.contract_address,
@@ -60,15 +62,15 @@ export async function GET(req: NextRequest) {
     const deployedStocks = catalog.filter((s) => s.address);
     const now = Math.floor(Date.now() / 1000);
 
-    // Exchange prices + listing, one multicall for the whole catalog
+    // Oracle prices + listing, one multicall for the whole catalog
     let exPrice: (bigint | null)[] = [];
     let exUpdated: (bigint | null)[] = [];
     let exListed: (boolean | null)[] = [];
-    if (HAS_EXCHANGE && deployedStocks.length) {
+    if (HAS_ORACLE && deployedStocks.length) {
       const calls = deployedStocks.flatMap((s) => [
-        { target: EXCHANGE_ADDRESS, iface: exchangeIface, fn: 'price', args: [s.address] },
-        { target: EXCHANGE_ADDRESS, iface: exchangeIface, fn: 'priceUpdatedAt', args: [s.address] },
-        { target: EXCHANGE_ADDRESS, iface: exchangeIface, fn: 'isListed', args: [s.address] },
+        { target: ORACLE_ADDRESS, iface: oracleIface, fn: 'price', args: [s.address] },
+        { target: ORACLE_ADDRESS, iface: oracleIface, fn: 'priceUpdatedAt', args: [s.address] },
+        { target: ORACLE_ADDRESS, iface: oracleIface, fn: 'isListed', args: [s.address] },
       ]);
       const r = await multicall<bigint | boolean>(calls);
       exPrice = deployedStocks.map((_, i) => r[i * 3] as bigint | null);
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
     const held = new Map<string, Holding>();
     if (IS_DEPLOYED) {
       const vault = getStockVault();
-      const [holdings, totalValue, nav, supply, name, symbol, lastRebalance, shares] = await Promise.all([
+      const [holdings, totalValue, nav, supply, name, symbol, lastRebalance, fees, shares] = await Promise.all([
         vault.getHoldings() as Promise<Holding[]>,
         vault.getTotalValue() as Promise<bigint>,
         vault.getNetAssetValue() as Promise<bigint>,
@@ -103,6 +105,7 @@ export async function GET(req: NextRequest) {
         vault.name() as Promise<string>,
         vault.symbol() as Promise<string>,
         vault.lastRebalanceTime() as Promise<bigint>,
+        vault.fees() as Promise<{ entryFeeBps: bigint; exitFeeBps: bigint }>,
         address ? (vault.balanceOf(address) as Promise<bigint>) : Promise.resolve(ZERO),
       ]);
       for (const h of holdings) held.set(h.token.toLowerCase(), h);
@@ -114,6 +117,8 @@ export async function GET(req: NextRequest) {
         navPerShare: Number(ethers.formatEther(nav)),
         totalShares: ethers.formatEther(supply),
         lastRebalance: Number(lastRebalance),
+        entryFeeBps: Number(fees.entryFeeBps),
+        exitFeeBps: Number(fees.exitFeeBps),
       };
       if (user) {
         user.shares = ethers.formatEther(shares);
@@ -172,10 +177,12 @@ export async function GET(req: NextRequest) {
       vault: vaultInfo,
       stocks,
       user,
-      ...(deployedStocks.length ? {} : { hint: 'Test tokens not created yet: run `node scripts/create-stock-tokens.mjs`.' }),
+      ...(deployedStocks.length
+        ? {}
+        : { hint: IS_TESTNET ? 'Test tokens not created yet: run `node scripts/create-stock-tokens.mjs`.' : 'No stocks listed yet: run `node scripts/deploy.mjs --network base`.' }),
     });
   } catch (e) {
     console.error('GET /api/stocks failed', e);
-    return NextResponse.json({ ...base, error: 'Failed to read Base Sepolia state' }, { status: 502 });
+    return NextResponse.json({ ...base, error: `Failed to read ${NETWORK.name} state` }, { status: 502 });
   }
 }
