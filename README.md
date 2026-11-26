@@ -1,5 +1,7 @@
 # ETF Manager Frontend
 
+**Using the app?** Read the [User Guide](docs/user-guide.md).
+
 ## Tokenized stocks on Base Sepolia
 
 The app now runs on **Base Sepolia (chain 84532)** with a tokenized-stock ETF, built for Base's
