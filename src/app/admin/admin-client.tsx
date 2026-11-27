@@ -1,44 +1,61 @@
 'use client';
 
-import { useActionState, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { loginAction, logoutAction, type LoginState } from './actions';
+import { useInjectedWallet, txErrorMessage } from '@/hooks/use-injected-wallet';
+import { challengeAction, logoutAction, signInAction } from './actions';
 
 export function LoginForm({ initialError }: { initialError?: string }) {
-  const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, { stage: 'email', error: initialError });
-  const codeStage = state?.stage === 'code';
+  const { account, connect, getSigner } = useInjectedWallet();
+  const [error, setError] = useState<string | undefined>(initialError);
+  const [busy, setBusy] = useState(false);
+
+  const signIn = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const challenge = await challengeAction(account);
+      if (!challenge.ok) throw new Error(challenge.error);
+      const signer = await getSigner();
+      const signature = await signer.signMessage(challenge.message);
+      const res = await signInAction(challenge.message, signature);
+      if (res && !res.ok) throw new Error(res.error);
+    } catch (e) {
+      // redirect() from the action surfaces as a NEXT_REDIRECT error; let Next handle it.
+      if ((e as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) throw e;
+      setError(txErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <form action={action} className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-card p-6 shadow-sm">
+    <div className="mx-auto mt-16 max-w-sm space-y-4 rounded-xl border bg-card p-6 shadow-sm">
       <div className="flex items-center gap-2 font-semibold">
         <Lock className="h-4 w-4" /> Restricted
       </div>
-      {codeStage ? (
+      {account ? (
         <>
-          <input type="hidden" name="email" value={state?.email ?? ''} />
-          {state?.info && <p className="text-sm text-muted-foreground">{state.info}</p>}
-          <Input key="code" name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="Code from the email" required autoFocus aria-label="Sign-in code" />
+          <p className="text-sm text-muted-foreground">
+            Connected as <span className="break-all font-mono text-xs text-foreground">{account}</span>
+          </p>
+          <Button className="w-full" onClick={signIn} disabled={busy}>
+            {busy ? 'Check your wallet…' : 'Sign in'}
+          </Button>
+          <button type="button" onClick={() => connect()} className="text-xs text-muted-foreground hover:text-foreground">
+            Use a different account
+          </button>
         </>
       ) : (
-        <Input key="email" name="email" type="email" autoComplete="email" placeholder="Email" required autoFocus aria-label="Email" defaultValue={state?.email} />
+        <Button className="w-full" onClick={() => connect()}>
+          Log in
+        </Button>
       )}
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" name="intent" value={codeStage ? 'verify' : 'send'} className="w-full" disabled={pending}>
-        {pending ? 'Working…' : codeStage ? 'Verify' : 'Email me a code'}
-      </Button>
-      {codeStage && (
-        <div className="flex justify-between text-xs">
-          <button type="submit" name="intent" value="restart" formNoValidate className="text-muted-foreground hover:text-foreground" disabled={pending}>
-            Use a different email
-          </button>
-          <button type="submit" name="intent" value="send" formNoValidate className="text-muted-foreground hover:text-foreground" disabled={pending}>
-            Resend
-          </button>
-        </div>
-      )}
-    </form>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
   );
 }
 

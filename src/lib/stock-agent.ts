@@ -6,6 +6,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { EXCHANGE_ADDRESS, HAS_EXCHANGE, STOCKS } from '@/config/base-sepolia';
 import { fetchAllStockPrices } from '@/lib/stock-prices';
 import { exchangeIface, getStockAgentSigner, getStockExchange, getStockVault, multicall, toPrice8 } from '@/lib/stock-vault';
+import { recordNavSnapshots } from '@/lib/nav-history/record';
 
 /**
  * True when the request carries `Authorization: Bearer <secret>` for either STOCK_AGENT_SECRET (manual/agent calls)
@@ -45,8 +46,11 @@ const MAX_PRICE_MOVE = 0.25;
  * Push a live price for every listed test stock onto the shared StockExchange:
  * Coinbase NAV where published, else underlying market price x multiplier. Batched ~100 per tx.
  */
-export function syncPrices(opts: { force?: boolean } = {}) {
-  return withAgentSigner(() => syncPricesUnlocked(opts));
+export async function syncPrices(opts: { force?: boolean } = {}) {
+  const result = await withAgentSigner(() => syncPricesUnlocked(opts));
+  // NAV only moves when prices do, so snapshot it now for the history charts. Best effort: never fails the sync.
+  await recordNavSnapshots().catch((e) => console.error('nav history: snapshot after price sync failed', e));
+  return result;
 }
 
 async function syncPricesUnlocked({ force = false }: { force?: boolean } = {}) {

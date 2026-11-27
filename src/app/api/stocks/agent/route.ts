@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { HAS_EXCHANGE, IS_DEPLOYED, findStock } from '@/config/base-sepolia';
 import { getStockAgentSigner, getStockVault } from '@/lib/stock-vault';
 import { isAgentAuthorized as authorized, rebalanceFlagship, syncPrices } from '@/lib/stock-agent';
+import { recordNavSnapshots } from '@/lib/nav-history/record';
 
 export const dynamic = 'force-dynamic';
+// Price sync + NAV snapshot (and a first-run history backfill) can outlast the default limit.
+export const maxDuration = 60;
 
 /**
  * GET  /api/stocks/agent            -> sync NAV prices (cron)
  * POST /api/stocks/agent { action }  -> "sync-prices" | "rebalance" | "set-weights" (weights: {TSLAc: 2500, ...})
+ *                                       | "record-history" (snapshot NAV now + backfill ITFs with no history)
  * Every action needs `Authorization: Bearer <STOCK_AGENT_SECRET|CRON_SECRET>`. sync-prices used to be open, but
  * letting anyone choose when the oracle moves enables a deposit -> sync -> withdraw arbitrage (audit F-03).
  * set-weights needs the agent key to own the vault (vault.setWeights is onlyOwner).
@@ -45,8 +49,10 @@ export async function POST(req: NextRequest) {
         await tx.wait();
         return NextResponse.json({ ok: true, txHash: tx.hash });
       }
+      case 'record-history':
+        return NextResponse.json({ ok: true, ...(await recordNavSnapshots({ budgetMs: 45_000 })) });
       default:
-        return NextResponse.json({ error: 'action must be sync-prices | rebalance | set-weights' }, { status: 400 });
+        return NextResponse.json({ error: 'action must be sync-prices | rebalance | set-weights | record-history' }, { status: 400 });
     }
   } catch (e) {
     console.error('stock agent failed', e);

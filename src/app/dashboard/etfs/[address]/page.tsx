@@ -14,6 +14,8 @@ import { CASH_TOKEN, STOCKS, explorerUrl } from '@/config/base-sepolia';
 import { B20_ABI, STOCK_VAULT_ABI } from '@/lib/stock-vault';
 import { FEE_LIMITS, bpsToPct, type EtfDetail } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { NavHistoryCard } from '@/components/charts/nav-history';
+import { HoldingsAllocation } from '@/components/charts/holdings-allocation';
 import { useListedStocks } from '@/hooks/use-listed-stocks';
 
 const usd = (n: number | null | undefined, max = 2) =>
@@ -190,6 +192,8 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
         </div>
       )}
 
+      <NavHistoryCard address={etf.address} symbol={etf.symbol} />
+
       {me?.isManager && <ManagerPanel etf={etf} busy={busy} run={run} send={send} />}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -260,7 +264,8 @@ export default function EtfDetailPage({ params }: { params: Promise<{ address: s
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="space-y-6 overflow-x-auto">
+          {etf.totalValueUsd > 0 && <HoldingsAllocation holdings={etf.holdings} />}
           <table className="w-full text-sm">
             <thead className="text-left text-muted-foreground">
               <tr className="border-b">

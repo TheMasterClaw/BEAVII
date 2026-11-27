@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { BASE_SEPOLIA, explorerUrl } from '@/config/base-sepolia';
 import { bpsToPct, type Portfolio } from '@/lib/etf';
 import { txErrorMessage, useInjectedWallet } from '@/hooks/use-injected-wallet';
+import { PortfolioCharts } from '@/components/charts/portfolio-charts';
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 });
 const qty = (n: number, max = 4) => n.toLocaleString('en-US', { maximumFractionDigits: max });
@@ -135,6 +136,8 @@ export default function PortfolioPage() {
         <Stat label="ITFs you manage" value={data ? String(data.managed.length) : '…'} />
         <Stat label="Manager fees earned" value={data ? usd(earned) : '…'} sub="at value when paid" />
       </div>
+
+      {data && !isNew && <PortfolioCharts data={data} />}
 
       {isNew && (
         <Card>

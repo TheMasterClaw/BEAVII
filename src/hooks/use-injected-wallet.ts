@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAppKit } from '@reown/appkit/react';
 import { useConnection, useSwitchChain } from 'wagmi';
-import { getConnectorClient } from 'wagmi/actions';
+import { getConnection, getConnectorClient } from 'wagmi/actions';
 import { BASE_SEPOLIA_CHAIN_ID } from '@/config/base-sepolia';
 import { wagmiConfig } from '@/config/reown';
 
@@ -32,7 +32,14 @@ export function useInjectedWallet() {
   const getSigner = useCallback(async () => {
     await ensureBaseSepolia();
     const client = await getConnectorClient(wagmiConfig, { chainId: BASE_SEPOLIA_CHAIN_ID });
-    const provider = new ethers.BrowserProvider(client.transport as ethers.Eip1193Provider, {
+    // Prefer the wallet's raw EIP-1193 provider: viem's transport wraps RPC errors in its own classes,
+    // which ethers can't parse ("could not coalesce error"), hiding reverts / rejections / no-gas errors.
+    const raw = (await getConnection(wagmiConfig).connector?.getProvider?.({ chainId: BASE_SEPOLIA_CHAIN_ID }).catch(() => null)) as
+      | ethers.Eip1193Provider
+      | null
+      | undefined;
+    const eip1193 = raw && typeof raw.request === 'function' ? raw : (client.transport as ethers.Eip1193Provider);
+    const provider = new ethers.BrowserProvider(eip1193, {
       chainId: BASE_SEPOLIA_CHAIN_ID,
       name: 'base-sepolia',
     });
@@ -55,7 +62,25 @@ export function txErrorMessage(e: unknown) {
   const name = err.revert?.name;
   if (name && CONTRACT_ERRORS[name]) return CONTRACT_ERRORS[name];
   if (name) return name;
-  return err.reason ?? err.shortMessage ?? err.info?.error?.message ?? err.message ?? 'Transaction failed';
+  // ethers "could not coalesce error" / UNKNOWN_ERROR wraps the wallet's original error in `.error`.
+  const inner = innerWalletMessage(e);
+  if (inner) {
+    if (/user (rejected|denied)|rejected the request|action_rejected/i.test(inner)) return 'You rejected the request in your wallet.';
+    if (/insufficient funds|exceeds the balance/i.test(inner)) return 'Not enough Base Sepolia ETH for gas. Get some from the faucet and try again.';
+  }
+  const top = err.reason ?? err.shortMessage ?? err.info?.error?.message ?? err.message;
+  if (inner && (!top || /could not coalesce|unknown error/i.test(top))) return inner;
+  return top ?? 'Transaction failed';
+}
+
+/** Digs the most specific message out of nested wallet / viem / ethers errors. */
+function innerWalletMessage(e: unknown, depth = 0): string | undefined {
+  if (!e || typeof e !== 'object' || depth > 5) return undefined;
+  const o = e as { error?: unknown; cause?: unknown; details?: string; shortMessage?: string; message?: string; data?: { message?: string } };
+  const deeper = innerWalletMessage(o.error, depth + 1) ?? innerWalletMessage(o.cause, depth + 1);
+  if (deeper) return deeper;
+  if (depth === 0) return undefined;
+  return o.details ?? o.data?.message ?? o.shortMessage ?? o.message;
 }
 
 const CONTRACT_ERRORS: Record<string, string> = {

@@ -115,6 +115,30 @@
   --sidebar-ring: #6366f1;
 }
 
+/* Data-viz categorical palette (src/components/charts). Fixed slot order; validated with the dataviz
+   palette checker for colour-blind separation against --card in each theme (light, dark, colour-blind).
+   Light slots 2-5 are under 3:1 on the card, so every chart also prints its values as text. */
+:root,
+.light,
+.color-blind {
+  --viz-1: #257de0;
+  --viz-2: #f47230;
+  --viz-3: #00b894;
+  --viz-4: #f2a600;
+  --viz-5: #ee7fac;
+  --viz-6: #008a17;
+  --viz-other: #a3a3a3;
+}
+.dark {
+  --viz-1: #338ced;
+  --viz-2: #e76624;
+  --viz-3: #00a888;
+  --viz-4: #d28e05;
+  --viz-5: #e24d8b;
+  --viz-6: #0aac23;
+  --viz-other: #8b8b92;
+}
+
 .color-blind {
   --background: #fff8f0;
   --foreground: #3d2200;
